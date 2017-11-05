@@ -13,14 +13,8 @@ def main():
     wb = xls.Workbook(write_only=True)
     ws = wb.create_sheet("summary")
     ws.append(Stock.get_summary_header_row())
-    # print ("{0:<12} {0:<14} {0:<14} {0:<14} {0:<22} {0:<20} ".format(*out[0]))
     for symbol in args.stock_symbols:
-        split = symbol.split(":")
-        if len(split) > 1:
-            symbol, currency = split [0], split[1]
-        else:
-            currency="usd"
-        stock = Stock(symbol, currency=currency)
+        stock = Stock(symbol)
         stock.write_xls_report()
         stock.plot_growth_ratios()
         ws.append(stock.get_summary_row())
