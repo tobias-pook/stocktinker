@@ -28,11 +28,14 @@ layout = html.Div([
                     dcc.Graph(id='stock-historic-closing-price-plot')
                     ])
         ],
-        style={'width': '49%', 'display': 'inline-block'}
+        style={'width': '48%', 'display': 'inline-block'}
     ),
     html.Div(
         [  html.Table(id='stock-rule1-summary-table')],
-        style={'width': '49%', 'display': 'inline-block'}
+        style={'width': '48%',
+               'display': 'inline-block',
+               'vertical-align':'top',
+               'padding': '10px'}
     ),
     html.H1("Key Ratios"),
     html.Div([ html.Table(id='stock-ratios-table')],
