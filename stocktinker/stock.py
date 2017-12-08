@@ -103,6 +103,11 @@ class Stock():
 
     def get_summary_info(self):
         summary_infos = [
+            ("average growth", 100 * self.estimated_growth),
+            ("estimated eps growth", 100 * self.estimated_eps_growth),
+            ("estimated revenue growth", 100 * self.estimated_revenue_growth),
+            ("estimated bookvalue growth", 100 * self.estimated_bookvalue_growth),
+            ("estimated operational cashflow growth", 100 * self.estimated_operational_cashflow_growth),
             ("currency", self.currency),
             ("eps TTM", self.ratios["earnings-per-share-%s" % self.currency].iloc[-1]),
             ("min p/e", min(self.ratios["pe"]) ),
@@ -118,11 +123,7 @@ class Stock():
             ("current price", self.current_price),
             ("",""),
             ("Growth rates","%"),
-            ("average growth", 100 * self.estimated_growth),
-            ("estimated eps growth", 100 * self.estimated_eps_growth),
-            ("estimated revenue growth", 100 * self.estimated_revenue_growth),
-            ("estimated bookvalue growth", 100 * self.estimated_bookvalue_growth),
-            ("estimated operational cashflow growth", 100 * self.estimated_operational_cashflow_growth),
+
         ]
         def format(value):
             try:
