@@ -69,7 +69,7 @@ def update_stock_ratios_table(n_clicks, symbol):
     return fundamentals_to_table(stock.ratios[keys])
 
 def fundamentals_to_table(df):
-    # Test
+    # Test1
     # [print(s.strftime("%m-%Y")) for s in df.index)]
     header = [ html.Tr([ html.Th('Date') ] + list(reversed([html.Th(s.strftime("%m-%Y")) for s in df.index])))]
     body = []
