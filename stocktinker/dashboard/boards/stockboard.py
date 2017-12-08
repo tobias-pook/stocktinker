@@ -56,6 +56,8 @@ def update_stock_ratios_summary_table(n_clicks, symbol):
                         'revenue-per-share-%s' % stock.currency,
                         'book-value-per-share-%s' % stock.currency,
                         'operating-cashflow-per-share-%s' % stock.currency,
+                        'return-on-invested-capital',
+                        'long-term-debt',
                       ])
 
     keys = list(desired_keys.intersection(existing_keys))
