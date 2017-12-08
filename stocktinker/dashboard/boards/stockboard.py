@@ -23,6 +23,7 @@ layout = html.Div([
     ),
     html.Div(
         [ html.Div([
+                    html.Table(id='stock-ratios-summary-table'),
                     dcc.Graph(id='stock-rule1-growth-plot'),
                     dcc.Graph(id='stock-historic-closing-price-plot')
                     ])
@@ -39,6 +40,23 @@ layout = html.Div([
     ),
 ])
 
+
+@app.callback(Output('stock-ratios-summary-table', 'children'),
+              [Input('submit-button', 'n_clicks')],
+              [ State('stock-symbol-input', 'value')])
+def update_stock_ratios_summary_table(n_clicks, symbol):
+    stock = stock_cache.get(symbol, Stock(symbol))
+    if symbol not in stock_cache:
+        stock_cache[symbol] = stock
+    existing_keys = set(list(stock.ratios))
+    desired_keys= set([ 'earnings-per-share-%s' % stock.currency,
+                        'revenue-per-share-%s' % stock.currency,
+                        'book-value-per-share-%s' % stock.currency,
+                        'operating-cashflow-per-share-%s' % stock.currency,
+                      ])
+
+    keys = list(desired_keys.intersection(existing_keys))
+    return fundamentals_to_table(stock.ratios[keys], n_years=8)
 
 @app.callback(Output('stock-ratios-table', 'children'),
               [Input('submit-button', 'n_clicks')],
@@ -68,10 +86,11 @@ def update_stock_ratios_table(n_clicks, symbol):
     keys = list(desired_keys.intersection(existing_keys))
     return fundamentals_to_table(stock.ratios[keys])
 
-def fundamentals_to_table(df):
-    # 
+def fundamentals_to_table(df,n_years=99):
+    #
     # [print(s.strftime("%m-%Y")) for s in df.index)]
-    header = [ html.Tr([ html.Th('Date') ] + list(reversed([html.Th(s.strftime("%m-%Y")) for s in df.index])))]
+    n_years = min(len(df.index), n_years)
+    header = [ html.Tr([ html.Th('Date') ] + list(reversed([html.Th(s.strftime("%m-%Y")) for s in df.index]))[:n_years])]
     body = []
     def formated_value(df, col, iloc=0, header=False):
         output_value = df[col].iloc[iloc]
@@ -82,13 +101,21 @@ def fundamentals_to_table(df):
                 output_header = col + " (mil)"
         except:
             pass
+        try:
+            if int(output_value) == float(output_value):
+                decimals = 0
+            else:
+                decimals = 2 # Assumes 2 decimal places for money
+            output_value = '{0:.{1}f}'.format(output_value, decimals)
+        except ValueError:
+            pass
         if header:
             return output_header
         return output_value
 
     for key in list(df):
 
-        body.append(html.Tr([html.Th(formated_value(df, key, header=True))] + list(reversed([ html.Td(formated_value(df, key, iloc=i)) for i in range(len(df))])) ) )
+        body.append(html.Tr([html.Th(formated_value(df, key, header=True))] + list(reversed([ html.Td(formated_value(df, key, iloc=i)) for i in range(len(df))]))[:n_years] ) )
     return header + body
 
 @app.callback(Output('stock-company-name-label', 'children'),
