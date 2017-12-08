@@ -6,6 +6,7 @@ requirements = ['pandas',
                 'openpyxl',
                 'yahoo-finance',
                 'matplotlib',
+                'fix_yahoo_finance',
                 'lxml']
 
 setup(name='stocktinker',
