@@ -52,9 +52,9 @@ def update_stock_ratios_summary_table(n_clicks, symbol):
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
     existing_keys = set(list(stock.ratios))
-    desired_keys= set([ 'earnings-per-share-%s' % stock.currency,
+    desired_keys= set([ 'book-value-per-share-%s' % stock.currency,
+                        'earnings-per-share-%s' % stock.currency,
                         'revenue-per-share-%s' % stock.currency,
-                        'book-value-per-share-%s' % stock.currency,
                         'operating-cashflow-per-share-%s' % stock.currency,
                         'shares',
                         'return-on-invested-capital',
