@@ -9,8 +9,6 @@ from slugify import slugify
 import pandas as pd
 import numpy as np
 
-import fix_yahoo_finance as datareader
-
 import matplotlib.pyplot as plt
 
 import openpyxl as xls
@@ -113,6 +111,7 @@ class Stock():
             ("eps TTM", self.ratios["earnings-per-share-%s" % self.currency].iloc[-1]),
             ("min p/e", min(self.ratios["pe"]) ),
             ("max p/e", max(self.ratios["pe"])),
+            ("0.75 perc p/e", self.ratios["pe"].quantile(q=0.75, interpolation='linear')),
             ("",""),
             ("Projections",""),
             ("projection years", self.n_projection_years),
@@ -275,6 +274,7 @@ class Stock():
         return average
 
     def get_estimated_eps(self, nyears=10):
+
         return self.ratios['earnings-per-share-%s' % self.currency].iloc[-1] * pow(1 + self.estimated_growth, nyears)
 
     @property
@@ -308,7 +308,7 @@ class Stock():
     def income(self):
         ''' property for income report dataframe '''
         if self._income is None:
-            self.income = self._load_csv_to_df('income')
+            self.income = self._load_report_csv_to_df('income')
         return self._income
 
     @income.setter
@@ -320,7 +320,7 @@ class Stock():
     def cashflow(self):
         ''' property for cashflow report dataframe '''
         if self._cashflow is None:
-            self._cashflow = self._load_csv_to_df('cashflow')
+            self._cashflow = self._load_report_csv_to_df('cashflow')
         return self._cashflow
 
     @cashflow.setter
@@ -332,7 +332,7 @@ class Stock():
     def balancesheet(self):
         ''' property for balancesheet report dataframe '''
         if self._balancesheet is None:
-            self.balancesheet = self._load_csv_to_df('balancesheet')
+            self.balancesheet = self._load_report_csv_to_df('balancesheet')
         return self._balancesheet
 
     @balancesheet.setter
@@ -344,7 +344,7 @@ class Stock():
     def ratios(self):
         ''' property for ratios report dataframe '''
         if self._ratios is None:
-            self._ratios = self._load_csv_to_df('ratios')
+            self._ratios = self._load_report_csv_to_df('ratios')
             self.add_book_value_ps_growth()
             self.add_earnings_ps_growth()
             self.add_revenue_ps_growth()
@@ -383,23 +383,7 @@ class Stock():
     @property
     def historic_prices(self):
         if self._historic_prices is None:
-            start = self.ratios['earnings-per-share-%s' % self.currency].index[0].strftime("%Y-%m-%d")
-            end = self.ratios['earnings-per-share-%s' % self.currency].index[-1].strftime("%Y-%m-%d")
-
-            sleeptime = 3
-            tries = 0
-            nodata = True
-            while nodata:
-                try:
-                    data = datareader.download(self.symbol, start, end)
-                    data.index.get_loc(self.ratios.index[-1],method='nearest')
-                    nodata = False
-                except:
-                    tries +=1
-                    time.sleep(sleeptime * tries)
-                    if tries > 3:
-                        nodata = False
-            self._historic_prices = data
+            self._historic_prices = self._load_price_csv_to_df()
         return self._historic_prices
 
     def add_pe(self):
@@ -408,7 +392,7 @@ class Stock():
             self.ratios.loc[i,'pe'] = self.historic_prices.iloc[self.historic_prices.index.get_loc(i,method='nearest')]['Close'] / self.ratios.loc[i,'earnings-per-share-%s' % self.currency]
 
     def _download_morningstar_data(self, report_type):
-        ''' download csv data from morningstar '''
+        ''' download csv fundamentals data from morningstar '''
         # prepare url string ddependent on report type
         if report_type == "ratios":
             url = "http://financials.morningstar.com/ajax/exportKR2CSV.html?t={symbol}"
@@ -421,9 +405,42 @@ class Stock():
         # retrieve csv object to file
         path, request = urlretrieve(url, self.report_path(report_type))
 
-    def _load_csv_to_df(self, report_type):
-        ''' load company csv reports from morningstar (local or from web)'''
-        if self.force_update or not os.path.exists(self.report_path(report_type)):
+    def _download_morningstar_pricedata(self):
+        ''' download csv price data from morningstar '''
+        time.sleep(0.01)
+        # fill variable parts of url
+        url = 'http://performance.morningstar.com/perform/Performance/stock/exportStockPrice.action?t={symbol}&pd=max&freq=d&sd=&ed=&pg=0&culture=en-US&cur={currency}'
+        url = url.format(symbol=self.symbol,
+                         currency=self.currency.upper())
+        # retrieve csv object to file
+        path, request = urlretrieve(url, self.report_path('price'))
+
+
+    def _csv_cache_valid(self, csv_path, cache_lifetime):
+        ''' Check if a csv file exists or may need an update '''
+        if not os.path.exists(csv_path):
+            return False
+        if time.time() - os.path.getmtime(csv_path) < cache_lifetime:
+            upate = False
+        return True
+
+    def _load_price_csv_to_df(self):
+        csv_path = self.report_path('price')
+        if not self._csv_cache_valid(csv_path, 40000):
+            self._download_morningstar_pricedata()
+        # read csv in pandas data frame
+        df = pd.read_csv(csv_path,
+                         skiprows=1,
+                         thousands=",",
+                         index_col=0,
+                         skip_blank_lines=True)
+        df.index = pd.to_datetime(df.index, format='%m/%d/%Y')
+        return df
+
+    def _load_report_csv_to_df(self, report_type):
+        ''' load company csv reports from morningstar (from web or cache)'''
+
+        if not self._csv_cache_valid(self.report_path(report_type), 86800):
             self._download_morningstar_data(report_type)
 
         # determine how many rows to skip based on report type
