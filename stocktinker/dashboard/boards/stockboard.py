@@ -59,6 +59,7 @@ def update_stock_ratios_summary_table(n_clicks, symbol):
                         'shares',
                         'return-on-invested-capital',
                         'long-term-debt',
+                        'debt-equity',
                       ])
 
     keys = list(desired_keys.intersection(existing_keys))
@@ -79,6 +80,7 @@ def update_stock_ratios_table(n_clicks, symbol):
                     'operating-cash-flow-growth-yoy',
                     'free-cash-flow-growth-yoy',
                     'shares',
+                    'return-on-invested-capital',
                     'operating-cash-flow-%s' % stock.currency,
                     'free-cash-flow-%s' % stock.currency,
                     'working-capital-%s' % stock.currency,
