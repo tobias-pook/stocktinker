@@ -12,14 +12,18 @@ from ..app import app
 from ..app import stock_cache
 
 layout = html.Div([
-    html.Div(
-        [dcc.Input(id='stock-symbol-input', type="text", value='AAPL'),
-         html.Button(id='submit-button', n_clicks=0, children='Submit')],
-        style={'width': '49%', 'display': 'inline-block'}
-    ),
-    html.Div(
-        [html.Div(id='stock-company-name-label', children=u'choose company',style={'fontSize': 14})],
-        style={'width': '49%', 'display': 'inline-block'}
+    html.Div([
+        html.Div(
+            [dcc.Input(id='stock-symbol-input', type="text", value='AAPL'),
+             html.Button(id='submit-button', n_clicks=0, children='Submit', style={'backround' : 'white'})],
+            style={'width': '49%', 'display': 'inline-block'}
+        ),
+        html.Div(
+            [html.Div(id='stock-company-name-label', children=u'choose company',style={'fontSize': 14})],
+            style={'width': '49%', 'display': 'inline-block', }
+        ),
+        ],style={'position': 'sticky', 'top' : 1, 'background': 'white'}
+
     ),
     html.Div(
         [ html.Div([
