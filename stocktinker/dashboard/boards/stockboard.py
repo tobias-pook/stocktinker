@@ -51,8 +51,7 @@ def update_stock_ratios_summary_table(n_clicks, symbol):
     stock = stock_cache.get(symbol, Stock(symbol))
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
-    existing_keys = set(list(stock.ratios))
-    desired_keys= set([ 'book-value-per-share-%s' % stock.currency,
+    desired_keys= [ 'book-value-per-share-%s' % stock.currency,
                         'earnings-per-share-%s' % stock.currency,
                         'revenue-per-share-%s' % stock.currency,
                         'operating-cashflow-per-share-%s' % stock.currency,
@@ -61,9 +60,10 @@ def update_stock_ratios_summary_table(n_clicks, symbol):
                         'return-on-equity',
                         'long-term-debt',
                         'debt-equity',
-                      ])
+                      ]
 
-    keys = list(desired_keys.intersection(existing_keys))
+    existing_keys = set(list(stock.ratios))
+    keys = [k for k in desired_keys if k in existing_keys]
     return fundamentals_to_table(stock.ratios[keys], n_years=8)
 
 @app.callback(Output('stock-ratios-table', 'children'),
@@ -73,15 +73,14 @@ def update_stock_ratios_table(n_clicks, symbol):
     stock = stock_cache.get(symbol, Stock(symbol))
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
-    existing_keys = set(list(stock.ratios))
-    desired_keys= set([ 'earnings-per-share-%s' % stock.currency,
+
+    desired_keys= [ 'earnings-per-share-%s' % stock.currency,
                     'dividends-%s' % stock.currency,
                     'book-value-per-share-%s' % stock.currency,
                     'free-cash-flow-per-share-%s' % stock.currency,
                     'operating-cash-flow-growth-yoy',
                     'free-cash-flow-growth-yoy',
                     'shares',
-                    'return-on-invested-capital',
                     'operating-cash-flow-%s' % stock.currency,
                     'free-cash-flow-%s' % stock.currency,
                     'working-capital-%s' % stock.currency,
@@ -90,9 +89,9 @@ def update_stock_ratios_table(n_clicks, symbol):
                     'return-on-invested-capital',
                     'return-on-equity',
                     'debt-equity',
-                    'long-term-debt'])
-
-    keys = list(desired_keys.intersection(existing_keys))
+                    'long-term-debt']
+    existing_keys = set(list(stock.ratios))
+    keys = [k for k in desired_keys if k in existing_keys]
     return fundamentals_to_table(stock.ratios[keys])
 
 def fundamentals_to_table(df,n_years=99):
