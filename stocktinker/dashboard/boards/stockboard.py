@@ -56,6 +56,7 @@ def update_stock_ratios_summary_table(n_clicks, symbol):
                         'revenue-per-share-%s' % stock.currency,
                         'book-value-per-share-%s' % stock.currency,
                         'operating-cashflow-per-share-%s' % stock.currency,
+                        'shares',
                         'return-on-invested-capital',
                         'long-term-debt',
                       ])
