@@ -58,6 +58,7 @@ def update_stock_ratios_summary_table(n_clicks, symbol):
                         'operating-cashflow-per-share-%s' % stock.currency,
                         'shares',
                         'return-on-invested-capital',
+                        'return-on-equity',
                         'long-term-debt',
                         'debt-equity',
                       ])
