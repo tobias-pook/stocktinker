@@ -221,6 +221,9 @@ class Stock():
                             'operating-cashflow-ps-growth',
                             'pe',
                             'shares',
+                            'long-term-debt-ps',
+                            'short-term-debt-ps',                           
+
                             # 'long-term-debt-ps-growth',
                             ]]
 
@@ -375,6 +378,12 @@ class Stock():
 
     def add_long_term_debt_ps_growth(self):
         self.ratios['long-term-debt-ps-growth'] = (self.ratios['long-term-debt'] / self.ratios['shares']).pct_change()
+        self.ratios['long-term-debt-ps'] = self.ratios['long-term-debt'] / self.ratios['shares']
+
+    def add_short_term_debt_ps_growth(self):
+        self.ratios['short-term-debt-ps-growth'] = (self.ratios['short-term-debt'] / self.ratios['shares']).pct_change()
+        self.ratios['short-term-debt-ps'] = self.ratios['short-term-debt'] / self.ratios['shares']
+
 
     def add_revenue_ps_growth(self):
         self.ratios['revenue-per-share-%s' % self.currency] = self.ratios['revenue-%s' % self.currency] / self.ratios['shares']
