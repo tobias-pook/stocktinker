@@ -8,6 +8,7 @@ __pycache__/
 *.csv
 # Image files
 *.png
+*.DS_Store
 
 # C extensions
 *.so
