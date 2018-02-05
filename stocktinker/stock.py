@@ -101,6 +101,7 @@ class Stock():
 
     def get_summary_info(self):
         summary_infos = [
+            ("Growth rates","%"),
             ("average growth", 100 * self.estimated_growth),
             ("estimated eps growth", 100 * self.estimated_eps_growth),
             ("estimated revenue growth", 100 * self.estimated_revenue_growth),
@@ -122,7 +123,6 @@ class Stock():
             ("target price", self.target_price),
             ("current price", self.current_price),
             ("",""),
-            ("Growth rates","%"),
 
         ]
         def format(value):
