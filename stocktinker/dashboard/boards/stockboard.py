@@ -111,7 +111,7 @@ def fundamentals_to_table(df,n_years=99):
             if np.fabs(df[col].iloc[0]) > 1.e6:
                 output_value = output_value / 1.e6
                 output_header = col + " (mil)"
-        except:
+        except ValueError:
             pass
         try:
             if int(output_value) == float(output_value):
