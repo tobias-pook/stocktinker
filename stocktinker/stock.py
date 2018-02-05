@@ -435,6 +435,10 @@ class Stock():
                          index_col=0,
                          skip_blank_lines=True)
         df.index = pd.to_datetime(df.index, format='%m/%d/%Y')
+        df.sort_index(ascending=True, inplace=True)
+        # remove thousand separators and convert to numeric values
+        df = df.apply(lambda x: pd.to_numeric(x.astype(str).str.replace(',',''), errors='coerce'))
+
         return df
 
     def _load_report_csv_to_df(self, report_type):
