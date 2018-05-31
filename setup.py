@@ -1,13 +1,9 @@
 from setuptools import setup
 
 requirements = ['pandas',
-                'pandas_datareader',
                 'python-slugify',
                 'openpyxl',
-                'yahoo-finance',
-                'matplotlib',
-                'fix_yahoo_finance',
-                'lxml']
+                'matplotlib']
 
 setup(name='stocktinker',
       version='0.1',
