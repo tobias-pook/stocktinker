@@ -348,6 +348,12 @@ class Stock():
     def projected_dividends_growth(self,value):
         self._projected_dividends_growth = value
 
+    def clear_cached_files(self):
+        report_types = ('income', 'cashflow', 'balancesheet', 'ratios', 'price')
+        for report_type in report_types:
+            if os.path.exists(self.report_path(report_type)):
+                os.remove(self.report_path(report_type))
+
     @property
     def income(self):
         ''' property for income report dataframe '''
@@ -431,7 +437,6 @@ class Stock():
     def add_short_term_debt_ps_growth(self):
         self.ratios['short-term-debt-ps-growth'] = (self.ratios['short-term-debt'] / self.ratios['shares']).pct_change()
         self.ratios['short-term-debt-ps'] = self.ratios['short-term-debt'] / self.ratios['shares']
-
 
     def add_revenue_ps_growth(self):
         self.ratios['revenue-per-share-%s' % self.currency] = self.ratios['revenue-%s' % self.currency] / self.ratios['shares']

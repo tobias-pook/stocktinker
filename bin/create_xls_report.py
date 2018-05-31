@@ -18,7 +18,10 @@ def main():
         stock.write_xls_report()
         stock.plot_growth_ratios()
         ws.append(stock.get_summary_row())
-    wb.save("analysis_report.xlsx")
+        print(list(stock.ratios.keys()))
+        print(stock.ratios['short-term-debt'])
+        # print(stock.ratios.head(1))
+    # wb.save("analysis_report.xlsx")
 
 if __name__ == '__main__':
     main()

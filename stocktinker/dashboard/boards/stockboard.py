@@ -15,7 +15,8 @@ layout = html.Div([
     html.Div([
         html.Div(
             [dcc.Input(id='stock-symbol-input', type="text", value='AAPL'),
-             html.Button(id='submit-button', n_clicks=0, children='Submit', style={'backround' : 'white'})],
+             html.Button(id='submit-button', n_clicks=0, children='Submit', style={'backround' : 'white'}),
+             html.Button(id='clear-cache-button', n_clicks=0, children='Reload', style={'backround' : 'white'})],
             style={'width': '49%', 'display': 'inline-block'}
         ),
         html.Div(
@@ -49,6 +50,17 @@ layout = html.Div([
              style={'width': '65%', 'display': 'inline-block'}
     ),
 ])
+
+@app.callback(Output('submit-button', 'n_clicks'),
+              [Input('clear-cache-button', 'n_clicks')],
+            [ State('stock-symbol-input', 'value')])
+def stock_clear_cache_on_click(_nclicks, symbol):
+    stock = stock_cache.get(symbol, Stock(symbol))
+    if symbol not in stock_cache:
+        stock_cache[symbol] = stock
+    stock.clear_cached_files()
+    del stock_cache[symbol]
+    return 1
 
 @app.callback(Output('stock-projection-output-table', 'children'),
               [Input('submit-button', 'n_clicks'),
