@@ -75,6 +75,8 @@ class Stock():
         self._quote = None
         self._historic_prices = None
         self._filters = filters
+        self._target_pe = None
+        self._estimated_growth = None
         if self._filters is None:
             self._filters = []
 
@@ -256,10 +258,17 @@ class Stock():
 
     @property
     def estimated_growth(self):
-        return np.median(np.array([self.estimated_eps_growth,
-                          self.estimated_revenue_growth,
-                          self.estimated_bookvalue_growth,
-                          self.estimated_operational_cashflow_growth]))
+        if self._estimated_growth is None:
+            growth_rates = np.array([self.estimated_eps_growth,
+                                     self.estimated_revenue_growth,
+                                     self.estimated_bookvalue_growth,
+                                     self.estimated_operational_cashflow_growth])
+            self._estimated_growth = round(np.median(growth_rates),2)
+        return self._estimated_growth
+
+    @estimated_growth.setter
+    def estimated_growth(self, value):
+        self._estimated_growth = value
 
     @property
     def estimated_bookvalue_growth(self):
@@ -304,8 +313,16 @@ class Stock():
 
     @property
     def target_pe(self):
-        return min(2 * self.estimated_growth * 100,
-                   max(self.ratios['pe']))
+        if self._target_pe is None:
+            self._target_pe = min(2 * self.estimated_growth * 100,
+                                   max(self.ratios['pe'])
+                                  )
+        return self._target_pe
+
+    @target_pe.setter
+    def target_pe(self, value):
+        self._target_pe = value
+
 
     @property
     def income(self):
