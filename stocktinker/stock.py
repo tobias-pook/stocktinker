@@ -118,16 +118,6 @@ class Stock():
             ("max p/e", max(self.ratios["pe"])),
             ("0.75 perc p/e", self.ratios["pe"].quantile(q=0.75, interpolation='linear')),
             ("",""),
-            ("Projections",""),
-            ("projection years", self.n_projection_years),
-            ("target yield", self.target_yield),
-            ("target p/e", self.target_pe),
-            ("current p/e", self.current_pe),
-            ("projected_price", self.price_projection),
-            ("target price", self.target_price),
-            ("current price", self.current_price),
-            ("",""),
-
         ]
         def format(value):
             try:
