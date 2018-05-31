@@ -35,7 +35,10 @@ layout = html.Div([
         style={'width': '48%', 'display': 'inline-block'}
     ),
     html.Div(
-        [  html.Table(id='stock-rule1-summary-table')],
+        [  html.Table(id='stock-rule1-summary-table'),
+           html.Table(id='stock-projection-input-table'),
+           html.Table(id='stock-projection-output-table'),
+        ],
         style={'width': '48%',
                'display': 'inline-block',
                'vertical-align':'top',
@@ -47,6 +50,88 @@ layout = html.Div([
     ),
 ])
 
+@app.callback(Output('stock-projection-output-table', 'children'),
+              [Input('submit-button', 'n_clicks'),
+                Input('stock-projection-table-nyear-input', 'value'),
+                Input('stock-projection-table-eps-growth-rate-input', 'value'),
+                Input('stock-projection-table-target-yield-input', 'value'),
+                Input('stock-projection-table-target-pe-input', 'value'),
+                Input('stock-projection-table-expected-dividends-input', 'value'),
+                Input('stock-projection-table-projected-dividends-growth-input', 'value'),
+                ],
+              [ State('stock-symbol-input', 'value')])
+def stock_projection_input_table_on_stock_update(n_clicks,
+                                                 n_years,
+                                                 estimated_growth,
+                                                 target_yield,
+                                                 target_pe,
+                                                 expected_dividends,
+                                                 projected_dividends_growth,
+                                                 symbol):
+
+    stock = stock_cache.get(symbol, Stock(symbol))
+    if symbol not in stock_cache:
+        stock_cache[symbol] = stock
+    stock.n_projection_years = int(n_years)
+    stock.estimated_growth = float(estimated_growth) / 100.
+    stock.target_yield = float(target_yield) / 100.
+    stock.target_pe = float(target_pe)
+    stock.expected_dividends = float(expected_dividends)
+    stock.projected_dividends_growth = float(projected_dividends_growth) / 100.
+    rows = []
+
+    rows.append(html.Tr([html.Th("Projected price"), html.Td(round(stock.price_projection,2))]))
+    rows.append(html.Tr([html.Th("Projected Total Dividends"), html.Td(round(stock.projected_dividend_earnings,2))]))
+    rows.append(html.Tr([html.Th("Target Price"), html.Td(round(stock.target_price,2))]))
+    rows.append(html.Tr([html.Th("Current Price"), html.Td(round(stock.current_price,2))]))
+    # rows.append(html.Tr([html.Th("dividend"), html.Td(stock.projected_dividends_growth)]))
+    return rows
+
+@app.callback(Output('stock-projection-input-table', 'children'),
+              [Input('submit-button', 'n_clicks')],
+              [ State('stock-symbol-input', 'value')])
+def stock_projection_input_table_on_stock_update(n_clicks, symbol):
+
+    stock = stock_cache.get(symbol, Stock(symbol))
+    if symbol not in stock_cache:
+        stock_cache[symbol] = stock
+
+    rows = []
+    default_input_kwargs = {"type" : "number",
+                            "inputmode" : "numeric",
+                            }
+
+    n_years_input = dcc.Input(id='stock-projection-table-nyear-input',
+                              value=stock.n_projection_years,
+                              **default_input_kwargs)
+    rows.append(html.Tr([html.Th("Projection years"), html.Td(n_years_input)]))
+
+    eps_growth_input = dcc.Input(id='stock-projection-table-eps-growth-rate-input',
+                                               value=round(stock.estimated_growth * 100.,2),
+                                               **default_input_kwargs)
+    rows.append(html.Tr([html.Th("Expected EPS growth %"), html.Td(eps_growth_input)]))
+
+    target_yield = dcc.Input(id='stock-projection-table-target-yield-input',
+                                               value=round(stock.target_yield * 100.,2),
+                                               **default_input_kwargs)
+    rows.append(html.Tr([html.Th("Target yield %"), html.Td(target_yield)]))
+
+    target_pe = dcc.Input(id='stock-projection-table-target-pe-input',
+                                               value=round(stock.target_pe,1),
+                                               **default_input_kwargs)
+    rows.append(html.Tr([html.Th("Target p/e"), html.Td(target_pe)]))
+
+    expected_dividends = dcc.Input(id='stock-projection-table-expected-dividends-input',
+                                                   value=round(stock.expected_dividends,2),
+                                                   **default_input_kwargs)
+    rows.append(html.Tr([html.Th("Expected dividends %s" % stock.currency), html.Td(expected_dividends)]))
+
+    projected_dividends_growth = dcc.Input(id='stock-projection-table-projected-dividends-growth-input',
+                                                   value=round(stock.projected_dividends_growth * 100. ,2),
+                                                   **default_input_kwargs)
+    rows.append(html.Tr([html.Th("Expected dividends growth %"), html.Td(projected_dividends_growth)]))
+
+    return rows
 
 @app.callback(Output('stock-ratios-summary-table', 'children'),
               [Input('submit-button', 'n_clicks')],
