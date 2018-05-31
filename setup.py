@@ -2,8 +2,7 @@ from setuptools import setup
 
 requirements = ['pandas',
                 'python-slugify',
-                'openpyxl',
-                'matplotlib']
+                'openpyxl']
 
 setup(name='stocktinker',
       version='0.1',

@@ -9,8 +9,6 @@ from slugify import slugify
 import pandas as pd
 import numpy as np
 
-import matplotlib.pyplot as plt
-
 import openpyxl as xls
 from openpyxl.utils.dataframe import dataframe_to_rows
 
@@ -220,17 +218,6 @@ class Stock():
 
                             # 'long-term-debt-ps-growth',
                             ]]
-
-    def plot_growth_ratios(self):
-        fig = plt.figure()
-        plot_df = self.ratios[['book-value-ps-growth',
-                              'earnings-ps-growth',
-                              'revenue-ps-growth',
-                              'operating-cashflow-ps-growth']]
-
-        # plot_df.dropna(axis=0, how='any', inplace=True)
-        plot_df.plot()
-        fig.savefig('growth_plot_{symbol}.png'.format(symbol=self.symbol))
 
     @property
     def estimated_eps_growth(self):
