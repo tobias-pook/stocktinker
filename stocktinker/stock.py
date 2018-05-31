@@ -77,6 +77,8 @@ class Stock():
         self._filters = filters
         self._target_pe = None
         self._estimated_growth = None
+        self._expected_dividends = None
+        self._projected_dividends_growth = None
         if self._filters is None:
             self._filters = []
 
@@ -224,7 +226,7 @@ class Stock():
                             'pe',
                             'shares',
                             'long-term-debt-ps',
-                            'short-term-debt-ps',                           
+                            'short-term-debt-ps',
 
                             # 'long-term-debt-ps-growth',
                             ]]
@@ -301,11 +303,16 @@ class Stock():
     def target_price(self):
         return self.get_target_price(self.n_projection_years, self.target_yield)
 
+    @property
+    def projected_dividend_earnings(self):
+        return sum(self.expected_dividends * pow(1+ self.projected_dividends_growth, i) for i in range(0,self.n_projection_years))
+
     def get_price_projection(self, nyears=10):
         return self.get_estimated_eps(nyears=nyears) * self.target_pe
 
+
     def get_target_price(self, nyears=10, target_yield=0.15):
-        return self.get_price_projection(nyears=nyears) / (1 + target_yield) ** nyears
+        return (self.get_price_projection(nyears=nyears) + self.projected_dividend_earnings) / (1 + target_yield) ** nyears
 
     @property
     def current_pe(self):
@@ -323,6 +330,33 @@ class Stock():
     def target_pe(self, value):
         self._target_pe = value
 
+    @property
+    def expected_dividends(self):
+        # Use the medain from the last 3 years as the default expectation
+        if self._expected_dividends is None:
+            if 'dividends-%s' % self.currency in self.ratios:
+                self._expected_dividends = np.median(self.ratios['dividends-%s' % self.currency].iloc[-1])
+            else:
+                self._expected_dividends = 0.
+        return self._expected_dividends
+
+    @expected_dividends.setter
+    def expected_dividends(self,value):
+        self._expected_dividends = value
+
+    @property
+    def projected_dividends_growth(self):
+        # Use the medain from the last 3 years as the default expectation
+        if self._projected_dividends_growth is None:
+            if 'dividends-%s' % self.currency in self.ratios:
+                self._projected_dividends_growth = self._get_average_growth_rate('dividends-ps-growth')
+            else:
+                self._projected_dividends_growth = 0.
+        return self._projected_dividends_growth
+
+    @projected_dividends_growth.setter
+    def projected_dividends_growth(self,value):
+        self._projected_dividends_growth = value
 
     @property
     def income(self):
@@ -369,8 +403,12 @@ class Stock():
             self.add_earnings_ps_growth()
             self.add_revenue_ps_growth()
             self.add_operating_cashflow_ps_growth()
-            # self.add_long_term_debt_ps_growth()
+            self.add_long_term_debt_ps_growth()
+            self.add_short_term_debt_ps_growth()
             self.add_pe()
+            if 'dividends-%s' % self.currency in self._ratios:
+                self._ratios['dividends-%s' % self.currency].fillna(0)
+                self.add_dividends_ps_growth()
         return self._ratios
 
     @ratios.setter
@@ -382,6 +420,9 @@ class Stock():
         ''' Get path for a report name '''
         return os.path.join(morningstar_data_path,
                             report_type+ "_%s.csv" % self.symbol)
+
+    def add_dividends_ps_growth(self):
+        self.ratios['dividends-ps-growth'] = self.ratios['dividends-%s' % self.currency].pct_change()
 
     def add_book_value_ps_growth(self):
         self.ratios['book-value-ps-growth'] = self.ratios['book-value-per-share-%s' % self.currency].pct_change()
