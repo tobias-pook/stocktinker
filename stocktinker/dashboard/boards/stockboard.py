@@ -268,7 +268,7 @@ def update_growth_rate_graph(n_clicks, symbol):
                     x=list(stock.ratios[key].index),
                     y=stock.ratios[key] * 100,
                     # text=dff[dff['Indicator Name'] == yaxis_column_name]['Country Name'],
-                    mode='line',
+                    mode='lines',
                     name=label_map[key],
                     marker={
                         'size': 15,
@@ -318,7 +318,7 @@ def update_growth_rate_graph(n_clicks, symbol):
                 x=list(stock.historic_prices.index),
                 y=stock.historic_prices['Close'],
                 # text=dff[dff['Indicator Name'] == yaxis_column_name]['Country Name'],
-                mode='line',
+                mode='lines',
                 name="closing",
                 marker={
                     'size': 5,
