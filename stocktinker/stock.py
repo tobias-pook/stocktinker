@@ -112,11 +112,14 @@ class Stock():
             ("",""),
             ("currency", self.currency),
             ("eps TTM", self.ratios["earnings-per-share-%s" % self.currency].iloc[-1]),
-            ("min p/e", min(self.ratios["pe"]) ),
-            ("max p/e", max(self.ratios["pe"])),
-            ("0.75 perc p/e", self.ratios["pe"].quantile(q=0.75, interpolation='linear')),
-            ("",""),
+
         ]
+        if 'pe' in self.ratios:
+            summary_infos += [("min p/e", min(self.ratios["pe"]) ),
+                                ("max p/e", max(self.ratios["pe"])),
+                                ("0.75 perc p/e", self.ratios["pe"].quantile(q=0.75, interpolation='linear')),
+                                ("",""),]
+
         def format(value):
             try:
                 return  "%.2f" % value
@@ -213,8 +216,9 @@ class Stock():
                             'operating-cashflow-ps-growth',
                             'pe',
                             'shares',
-                            'long-term-debt-ps',
-                            'short-term-debt-ps',
+                            'total-debt-growth',
+                            'debt-per-earnings',
+                            'debt-per-bookvalue',
 
                             # 'long-term-debt-ps-growth',
                             ]]
@@ -282,7 +286,9 @@ class Stock():
 
     @property
     def projected_dividend_earnings(self):
-        return sum(self.expected_dividends * pow(1+ self.projected_dividends_growth, i) for i in range(0,self.n_projection_years))
+        if self.has_dividends:
+            return sum(self.expected_dividends * pow(1+ self.projected_dividends_growth, i) for i in range(0,self.n_projection_years))
+        return 0.
 
     def get_price_projection(self, nyears=10):
         return self.get_estimated_eps(nyears=nyears) * self.target_pe
@@ -297,6 +303,8 @@ class Stock():
 
     @property
     def target_pe(self):
+        if 'pe' not in self.ratios:
+            return -1.
         if self._target_pe is None:
             self._target_pe = min(2 * self.estimated_growth * 100,
                                    max(self.ratios['pe'])
@@ -325,7 +333,9 @@ class Stock():
     def projected_dividends_growth(self):
         # Use the medain from the last 3 years as the default expectation
         if self._projected_dividends_growth is None:
-            if 'dividends-%s' % self.currency in self.ratios:
+            if self.has_dividends:
+                if 'dividends-ps-growth' not in self.ratios:
+                    self.add_dividends_ps_growth()
                 self._projected_dividends_growth = self._get_average_growth_rate('dividends-ps-growth')
             else:
                 self._projected_dividends_growth = 0.
@@ -388,11 +398,19 @@ class Stock():
             self.add_operating_cashflow_ps_growth()
             self.add_long_term_debt_ps_growth()
             self.add_short_term_debt_ps_growth()
+            self.add_total_debt()
+            self.add_debt_ratios()
             self.add_pe()
-            if 'dividends-%s' % self.currency in self._ratios:
+            if self.has_dividends:
                 self._ratios['dividends-%s' % self.currency].fillna(0)
-                self.add_dividends_ps_growth()
+            self.add_dividends_ps_growth()
         return self._ratios
+
+    @property
+    def has_dividends(self):
+        if 'dividends-%s' % self.currency in self._ratios:
+            return True
+        return False
 
     @ratios.setter
     def ratios(self, df):
@@ -405,29 +423,43 @@ class Stock():
                             report_type+ "_%s.csv" % self.symbol)
 
     def add_dividends_ps_growth(self):
-        self.ratios['dividends-ps-growth'] = self.ratios['dividends-%s' % self.currency].pct_change()
+        if 'dividends-%s' % self.currency in self._ratios:
+            self._ratios['dividends-ps-growth'] = self._ratios['dividends-%s' % self.currency].pct_change()
+        self._ratios['dividends-ps-growth'] = self._ratios['shares'] * 0.
 
     def add_book_value_ps_growth(self):
-        self.ratios['book-value-ps-growth'] = self.ratios['book-value-per-share-%s' % self.currency].pct_change()
+        self._ratios['book-value-ps-growth'] = self._ratios['book-value-per-share-%s' % self.currency].pct_change()
 
     def add_earnings_ps_growth(self):
-        self.ratios['earnings-ps-growth'] = self.ratios['earnings-per-share-%s' % self.currency].pct_change()
+        self._ratios['earnings-ps-growth'] = self._ratios['earnings-per-share-%s' % self.currency].pct_change()
 
     def add_operating_cashflow_ps_growth(self):
-        self.ratios['operating-cashflow-per-share-%s' % self.currency] = self.ratios['operating-cash-flow-%s' % self.currency] / self.ratios['shares']
-        self.ratios['operating-cashflow-ps-growth'] = (self.ratios['operating-cash-flow-%s' % self.currency] / self.ratios['shares']).pct_change()
+        self._ratios['operating-cashflow-per-share-%s' % self.currency] = self._ratios['operating-cash-flow-%s' % self.currency] / self._ratios['shares']
+        self._ratios['operating-cashflow-ps-growth'] = (self._ratios['operating-cash-flow-%s' % self.currency] / self._ratios['shares']).pct_change()
 
     def add_long_term_debt_ps_growth(self):
-        self.ratios['long-term-debt-ps-growth'] = (self.ratios['long-term-debt'] / self.ratios['shares']).pct_change()
-        self.ratios['long-term-debt-ps'] = self.ratios['long-term-debt'] / self.ratios['shares']
+        self._ratios['long-term-debt'] = self.balancesheet['long-term-debt']
+        self._ratios['long-term-debt-ps-growth'] = (self.balancesheet['long-term-debt'] / self._ratios['shares']).pct_change()
+        self._ratios['long-term-debt-ps'] = self.balancesheet['long-term-debt'] / self._ratios['shares']
 
     def add_short_term_debt_ps_growth(self):
-        self.ratios['short-term-debt-ps-growth'] = (self.ratios['short-term-debt'] / self.ratios['shares']).pct_change()
-        self.ratios['short-term-debt-ps'] = self.ratios['short-term-debt'] / self.ratios['shares']
+        self._ratios['short-term-debt'] = self.balancesheet['short-term-debt']
+        self._ratios['short-term-debt-ps-growth'] = (self.balancesheet['short-term-debt'] / self._ratios['shares']).pct_change()
+        self._ratios['short-term-debt-ps'] = self.balancesheet['short-term-debt'] / self._ratios['shares']
+
+    def add_total_debt(self):
+        self._ratios['total-debt-%s' % self.currency] = self.balancesheet['short-term-debt'] + self.balancesheet['long-term-debt']
+        self._ratios['total-debt-per-share-%s' % self.currency] = self._ratios['total-debt-%s' % self.currency] / self._ratios['shares']
+        self._ratios['total-debt-growth'] = (self._ratios['total-debt-%s' % self.currency]).pct_change()
+
+    def add_debt_ratios(self):
+        self._ratios['debt-per-earnings'] = self._ratios['total-debt-per-share-%s' % self.currency] / self._ratios['earnings-per-share-%s' % self.currency]
+        self._ratios['debt-per-bookvalue'] = self._ratios['total-debt-per-share-%s' % self.currency] / self._ratios['book-value-per-share-%s' % self.currency]
+
 
     def add_revenue_ps_growth(self):
-        self.ratios['revenue-per-share-%s' % self.currency] = self.ratios['revenue-%s' % self.currency] / self.ratios['shares']
-        self.ratios['revenue-ps-growth'] = (self.ratios['revenue-%s' % self.currency] / self.ratios['shares']).pct_change()
+        self._ratios['revenue-per-share-%s' % self.currency] = self._ratios['revenue-%s' % self.currency] / self._ratios['shares']
+        self._ratios['revenue-ps-growth'] = (self._ratios['revenue-%s' % self.currency] / self._ratios['shares']).pct_change()
 
     @property
     def historic_prices(self):

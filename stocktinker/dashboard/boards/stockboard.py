@@ -153,14 +153,15 @@ def update_stock_ratios_summary_table(n_clicks, symbol):
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
     desired_keys= [ 'book-value-per-share-%s' % stock.currency,
-                        'earnings-per-share-%s' % stock.currency,
-                        'revenue-per-share-%s' % stock.currency,
-                        'operating-cashflow-per-share-%s' % stock.currency,
-                        'shares',
-                        'return-on-invested-capital',
-                        'return-on-equity',
-                        'long-term-debt',
-                        'debt-equity',
+                    'earnings-per-share-%s' % stock.currency,
+                    'revenue-per-share-%s' % stock.currency,
+                    'operating-cashflow-per-share-%s' % stock.currency,
+                    'shares',
+                    'return-on-invested-capital',
+                    'return-on-equity',
+                    'total-debt-%s' % stock.currency,
+                    'debt-per-earnings',
+                    'debt-per-bookvalue',
                       ]
 
     existing_keys = set(list(stock.ratios))
@@ -190,7 +191,12 @@ def update_stock_ratios_table(n_clicks, symbol):
                     'return-on-invested-capital',
                     'return-on-equity',
                     'debt-equity',
-                    'long-term-debt']
+                    'long-term-debt',
+                    'short-term-debt',
+                    'total-debt-%s' % stock.currency,
+                    'debt-per-earnings',
+                    'debt-per-bookvalue',
+                    ]
     existing_keys = set(list(stock.ratios))
     keys = [k for k in desired_keys if k in existing_keys]
     return fundamentals_to_table(stock.ratios[keys])
