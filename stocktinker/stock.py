@@ -494,6 +494,11 @@ class Stock():
         # fill variable parts of url
         url = url.format(symbol=self.symbol,
                          report_key=self.report_key_map.get(report_type, None))
+        referer = 'http://financials.morningstar.com/income-statement/is.html?t={symbol}&region=usa&culture=en-US'
+        referer = referer.format(symbol=self.symbol)
+        opener = urllib.request.build_opener()
+        opener.addheaders = [('Referer', referer)]
+        urllib.request.install_opener(opener)
         # retrieve csv object to file
         path, request = urlretrieve(url, self.report_path(report_type))
 
