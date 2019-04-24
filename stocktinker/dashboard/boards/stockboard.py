@@ -27,7 +27,7 @@ layout = html.Div([
 
     ),
     html.Div(
-        [ html.Div([
+        [ html.Div([html.Table(id='stock-errors-table'),
                     html.Table(id='stock-ratios-summary-table'),
                     dcc.Graph(id='stock-rule1-growth-plot'),
                     dcc.Graph(id='stock-historic-closing-price-plot')
@@ -72,7 +72,7 @@ def stock_clear_cache_on_click(_nclicks, symbol):
                 Input('stock-projection-table-projected-dividends-growth-input', 'value'),
                 ],
               [ State('stock-symbol-input', 'value')])
-def stock_projection_input_table_on_stock_update(n_clicks,
+def stock_projection_output_table_on_stock_update(n_clicks,
                                                  n_years,
                                                  estimated_growth,
                                                  target_yield,
@@ -80,30 +80,30 @@ def stock_projection_input_table_on_stock_update(n_clicks,
                                                  expected_dividends,
                                                  projected_dividends_growth,
                                                  symbol):
-
     stock = stock_cache.get(symbol, Stock(symbol))
-    if symbol not in stock_cache:
-        stock_cache[symbol] = stock
-    stock.n_projection_years = int(n_years)
-    stock.estimated_growth = float(estimated_growth) / 100.
-    stock.target_yield = float(target_yield) / 100.
-    stock.target_pe = float(target_pe)
-    stock.expected_dividends = float(expected_dividends)
-    stock.projected_dividends_growth = float(projected_dividends_growth) / 100.
-    rows = []
+    try:
+        if symbol not in stock_cache:
+            stock_cache[symbol] = stock
+        stock.n_projection_years = int(n_years)
+        stock.estimated_growth = float(estimated_growth) / 100.
+        stock.target_yield = float(target_yield) / 100.
+        stock.target_pe = float(target_pe)
+        stock.expected_dividends = float(expected_dividends)
+        stock.projected_dividends_growth = float(projected_dividends_growth) / 100.
+        rows = []
 
-    rows.append(html.Tr([html.Th("Projected price"), html.Td(round(stock.price_projection,2))]))
-    rows.append(html.Tr([html.Th("Projected Total Dividends"), html.Td(round(stock.projected_dividend_earnings,2))]))
-    rows.append(html.Tr([html.Th("Target Price"), html.Td(round(stock.target_price,2))]))
-    rows.append(html.Tr([html.Th("Current Price"), html.Td(round(stock.current_price,2))]))
-    # rows.append(html.Tr([html.Th("dividend"), html.Td(stock.projected_dividends_growth)]))
+        rows.append(html.Tr([html.Th("Projected price"), html.Td(round(stock.price_projection,2))]))
+        rows.append(html.Tr([html.Th("Projected Total Dividends"), html.Td(round(stock.projected_dividend_earnings,2))]))
+        rows.append(html.Tr([html.Th("Target Price"), html.Td(round(stock.target_price,2))]))
+        rows.append(html.Tr([html.Th("Current Price"), html.Td(round(stock.current_price,2))]))
+    except:
+        return []
     return rows
 
 @app.callback(Output('stock-projection-input-table', 'children'),
               [Input('submit-button', 'n_clicks')],
               [ State('stock-symbol-input', 'value')])
 def stock_projection_input_table_on_stock_update(n_clicks, symbol):
-
     stock = stock_cache.get(symbol, Stock(symbol))
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
@@ -118,9 +118,13 @@ def stock_projection_input_table_on_stock_update(n_clicks, symbol):
                               **default_input_kwargs)
     rows.append(html.Tr([html.Th("Projection years"), html.Td(n_years_input)]))
 
+    try:
+        value = round(stock.estimated_growth * 100.,2)
+    except:
+        value = 0
     eps_growth_input = dcc.Input(id='stock-projection-table-eps-growth-rate-input',
-                                               value=round(stock.estimated_growth * 100.,2),
-                                               **default_input_kwargs)
+                                 value=value,
+                                 **default_input_kwargs)
     rows.append(html.Tr([html.Th("Expected EPS growth %"), html.Td(eps_growth_input)]))
 
     target_yield = dcc.Input(id='stock-projection-table-target-yield-input',
@@ -128,18 +132,30 @@ def stock_projection_input_table_on_stock_update(n_clicks, symbol):
                                                **default_input_kwargs)
     rows.append(html.Tr([html.Th("Target yield %"), html.Td(target_yield)]))
 
+    try:
+        value = round(stock.target_pe,1)
+    except:
+        value = 0
     target_pe = dcc.Input(id='stock-projection-table-target-pe-input',
-                                               value=round(stock.target_pe,1),
+                                               value=value,
                                                **default_input_kwargs)
     rows.append(html.Tr([html.Th("Target p/e"), html.Td(target_pe)]))
 
+    try:
+        value = round(stock.expected_dividends,2)
+    except:
+        value = 0
     expected_dividends = dcc.Input(id='stock-projection-table-expected-dividends-input',
-                                                   value=round(stock.expected_dividends,2),
+                                                   value=value,
                                                    **default_input_kwargs)
     rows.append(html.Tr([html.Th("Expected dividends %s" % stock.currency), html.Td(expected_dividends)]))
 
+    try:
+        value = round(stock.projected_dividends_growth * 100. ,2)
+    except:
+        value = 0
     projected_dividends_growth = dcc.Input(id='stock-projection-table-projected-dividends-growth-input',
-                                                   value=round(stock.projected_dividends_growth * 100. ,2),
+                                                   value=value,
                                                    **default_input_kwargs)
     rows.append(html.Tr([html.Th("Expected dividends growth %"), html.Td(projected_dividends_growth)]))
 
@@ -199,7 +215,7 @@ def update_stock_ratios_table(n_clicks, symbol):
                     ]
     existing_keys = set(list(stock.ratios))
     keys = [k for k in desired_keys if k in existing_keys]
-    return fundamentals_to_table(stock.ratios[keys])
+    return fundamentals_to_table(stock.ratios[keys]) + [html.Tr([html.Th("Error"), html.Td(e)]) for e in stock.error_log ]
 
 def fundamentals_to_table(df,n_years=99):
     #
@@ -270,19 +286,21 @@ def update_growth_rate_graph(n_clicks, symbol):
 
     data = []
     for key in growth_keys:
-        data.append(go.Scatter(
-                    x=list(stock.ratios[key].index),
-                    y=stock.ratios[key] * 100,
-                    # text=dff[dff['Indicator Name'] == yaxis_column_name]['Country Name'],
-                    mode='lines',
-                    name=label_map[key],
-                    marker={
-                        'size': 15,
-                        'opacity': 0.5,
-                        'line': {'width': 0.5, 'color': 'white'}
-                    }
-                   ))
-
+        try:
+            data.append(go.Scatter(
+                        x=list(stock.ratios[key].index),
+                        y=stock.ratios[key] * 100,
+                        # text=dff[dff['Indicator Name'] == yaxis_column_name]['Country Name'],
+                        mode='lines',
+                        name=label_map[key],
+                        marker={
+                            'size': 15,
+                            'opacity': 0.5,
+                            'line': {'width': 0.5, 'color': 'white'}
+                        }
+                       ))
+        except:
+            pass
     return {
         'data': data,
         'layout': go.Layout(
@@ -315,23 +333,26 @@ def update_growth_rate_graph(n_clicks, symbol):
 @app.callback(Output('stock-historic-closing-price-plot', 'figure'),
               [Input('submit-button', 'n_clicks')],
               [ State('stock-symbol-input', 'value')])
-def update_growth_rate_graph(n_clicks, symbol):
+def update_price_graph(n_clicks, symbol):
     stock = stock_cache.get(symbol, Stock(symbol))
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
     data = []
-    data.append(go.Scatter(
-                x=list(stock.historic_prices.index),
-                y=stock.historic_prices['Close'],
-                # text=dff[dff['Indicator Name'] == yaxis_column_name]['Country Name'],
-                mode='lines',
-                name="closing",
-                marker={
-                    'size': 5,
-                    'opacity': 0.5,
-                    'line': {'width': 0.5, 'color': 'white'}
-                }
-               ))
+    try:
+        data.append(go.Scatter(
+                    x=list(stock.historic_prices.index),
+                    y=stock.historic_prices['Close'],
+                    # text=dff[dff['Indicator Name'] == yaxis_column_name]['Country Name'],
+                    mode='lines',
+                    name="closing",
+                    marker={
+                        'size': 5,
+                        'opacity': 0.5,
+                        'line': {'width': 0.5, 'color': 'white'}
+                    }
+                   ))
+    except:
+        pass
     return {
         'data': data,
         'layout': go.Layout(
@@ -359,3 +380,26 @@ def update_growth_rate_graph(n_clicks, symbol):
 
         ),
     }
+
+# @app.callback(Output('stock-errors-table', 'children'),
+#               [Input('submit-button', 'n_clicks'),
+#                 Input('stock-projection-table-nyear-input', 'value'),
+#                 Input('stock-projection-table-eps-growth-rate-input', 'value'),
+#                 Input('stock-projection-table-target-yield-input', 'value'),
+#                 Input('stock-projection-table-target-pe-input', 'value'),
+#                 Input('stock-projection-table-expected-dividends-input', 'value'),
+#                 Input('stock-projection-table-projected-dividends-growth-input', 'value'),
+#                 ],
+#               [ State('stock-symbol-input', 'value')])
+# def stock_error_on_stock_update(n_clicks,
+#                                  n_years,
+#                                  estimated_growth,
+#                                  target_yield,
+#                                  target_pe,
+#                                  expected_dividends,
+#                                  projected_dividends_growth,
+#                                  symbol):
+#     stock = stock_cache.get(symbol, Stock(symbol))
+#     if symbol not in stock_cache:
+#         stock_cache[symbol] = stock
+#     return [html.Tr([html.Th("Error"), html.Td(e)]) for e in stock.error_log ]

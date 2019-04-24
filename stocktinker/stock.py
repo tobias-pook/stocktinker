@@ -14,6 +14,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 
 if sys.version_info[0] >= 3:
     from urllib.request import urlretrieve
+    import urllib.request
 else:
     # Not Python 3 - today, it is most likely to be Python 2
     # But note that this might need an update when Python 4
@@ -36,6 +37,8 @@ reports_path = os.getenv("STOCKTINKER_REPORTS", "reports")
 if not os.path.exists(reports_path):
     os.makedirs(reports_path)
 
+class MorningStarPriceError(Exception):
+    pass
 
 class Stock():
     ''' Class to receive and process financial data from for stocks using morningstar
@@ -77,6 +80,7 @@ class Stock():
         self._estimated_growth = None
         self._expected_dividends = None
         self._projected_dividends_growth = None
+        self.error_log = []
         if self._filters is None:
             self._filters = []
 
@@ -102,30 +106,35 @@ class Stock():
         wb.save(os.path.join(reports_path,filename))
 
     def get_summary_info(self):
-        summary_infos = [
-            ("Growth rates","%"),
-            ("average growth", 100 * self.estimated_growth),
-            ("estimated eps growth", 100 * self.estimated_eps_growth),
-            ("estimated revenue growth", 100 * self.estimated_revenue_growth),
-            ("estimated bookvalue growth", 100 * self.estimated_bookvalue_growth),
-            ("estimated operational cashflow growth", 100 * self.estimated_operational_cashflow_growth),
-            ("",""),
-            ("currency", self.currency),
-            ("eps TTM", self.ratios["earnings-per-share-%s" % self.currency].iloc[-1]),
+        try:
+            summary_infos = [
+                ("Growth rates","%"),
+                ("average growth", 100 * self.estimated_growth),
+                ("estimated eps growth", 100 * self.estimated_eps_growth),
+                ("estimated revenue growth", 100 * self.estimated_revenue_growth),
+                ("estimated bookvalue growth", 100 * self.estimated_bookvalue_growth),
+                ("estimated operational cashflow growth", 100 * self.estimated_operational_cashflow_growth),
+                ("",""),
+                ("currency", self.currency),
+                ("eps TTM", self.ratios["earnings-per-share-%s" % self.currency].iloc[-1]),
 
-        ]
-        if 'pe' in self.ratios:
-            summary_infos += [("min p/e", min(self.ratios["pe"]) ),
-                                ("max p/e", max(self.ratios["pe"])),
-                                ("0.75 perc p/e", self.ratios["pe"].quantile(q=0.75, interpolation='linear')),
-                                ("",""),]
+            ]
 
+            if 'pe' in self.ratios:
+                summary_infos += [("min p/e", min(self.ratios["pe"]) ),
+                                    ("max p/e", max(self.ratios["pe"])),
+                                    ("0.75 perc p/e", self.ratios["pe"].quantile(q=0.75, interpolation='linear')),
+                                    ("",""),]
+        except KeyError as e:
+            self.error_log.append("Field not found {}".format(str(e)))
+            return []
         def format(value):
             try:
                 return  "%.2f" % value
             except:
                 return value
         return [(s[0], format(s[1])) for s in summary_infos ]
+
 
     @staticmethod
     def get_summary_header_row():
@@ -303,9 +312,9 @@ class Stock():
 
     @property
     def target_pe(self):
-        if 'pe' not in self.ratios:
-            return -1.
         if self._target_pe is None:
+            if 'pe' not in self.ratios:
+                return -1.
             self._target_pe = min(2 * self.estimated_growth * 100,
                                    max(self.ratios['pe'])
                                   )
@@ -367,7 +376,7 @@ class Stock():
     def cashflow(self):
         ''' property for cashflow report dataframe '''
         if self._cashflow is None:
-            self._cashflow = self._load_report_csv_to_df('cashflow')
+            self.cashflow = self._load_report_csv_to_df('cashflow')
         return self._cashflow
 
     @cashflow.setter
@@ -392,18 +401,19 @@ class Stock():
         ''' property for ratios report dataframe '''
         if self._ratios is None:
             self._ratios = self._load_report_csv_to_df('ratios')
-            self.add_book_value_ps_growth()
-            self.add_earnings_ps_growth()
-            self.add_revenue_ps_growth()
-            self.add_operating_cashflow_ps_growth()
-            self.add_long_term_debt_ps_growth()
-            self.add_short_term_debt_ps_growth()
-            self.add_total_debt()
-            self.add_debt_ratios()
-            self.add_pe()
-            if self.has_dividends:
-                self._ratios['dividends-%s' % self.currency].fillna(0)
-            self.add_dividends_ps_growth()
+            if not self._ratios.empty:
+                self.add_book_value_ps_growth()
+                self.add_earnings_ps_growth()
+                self.add_revenue_ps_growth()
+                self.add_operating_cashflow_ps_growth()
+                self.add_long_term_debt_ps_growth()
+                self.add_short_term_debt_ps_growth()
+                self.add_total_debt()
+                self.add_debt_ratios()
+                self.add_pe()
+                if self.has_dividends:
+                    self._ratios['dividends-%s' % self.currency].fillna(0)
+                self.add_dividends_ps_growth()
         return self._ratios
 
     @property
@@ -438,9 +448,10 @@ class Stock():
         self._ratios['operating-cashflow-ps-growth'] = (self._ratios['operating-cash-flow-%s' % self.currency] / self._ratios['shares']).pct_change()
 
     def add_long_term_debt_ps_growth(self):
-        self._ratios['long-term-debt'] = self.balancesheet['long-term-debt']
-        self._ratios['long-term-debt-ps-growth'] = (self.balancesheet['long-term-debt'] / self._ratios['shares']).pct_change()
-        self._ratios['long-term-debt-ps'] = self.balancesheet['long-term-debt'] / self._ratios['shares']
+        if 'long-term-debt' in self.balancesheet:
+            self._ratios['long-term-debt'] = self.balancesheet['long-term-debt']
+            self._ratios['long-term-debt-ps-growth'] = (self.balancesheet['long-term-debt'] / self._ratios['shares']).pct_change()
+            self._ratios['long-term-debt-ps'] = self.balancesheet['long-term-debt'] / self._ratios['shares']
 
     def add_short_term_debt_ps_growth(self):
         self._ratios['short-term-debt'] = self.balancesheet['short-term-debt']
@@ -491,10 +502,13 @@ class Stock():
         time.sleep(0.01)
         # fill variable parts of url
         url = 'http://performance.morningstar.com/perform/Performance/stock/exportStockPrice.action?t={symbol}&pd=max&freq=d&sd=&ed=&pg=0&culture=en-US&cur={currency}'
-        url = url.format(symbol=self.symbol,
-                         currency=self.currency.upper())
-        # retrieve csv object to file
-        path, request = urlretrieve(url, self.report_path('price'))
+        try:
+            url = url.format(symbol=self.symbol,
+                             currency=self.currency.upper())
+            # retrieve csv object to file
+            path, request = urlretrieve(url, self.report_path('price'))
+        except:
+            raise MorningStarPriceError("Unable to download price data")
 
 
     def _csv_cache_valid(self, csv_path, cache_lifetime):
@@ -508,19 +522,29 @@ class Stock():
     def _load_price_csv_to_df(self):
         csv_path = self.report_path('price')
         if not self._csv_cache_valid(csv_path, 40000):
-            self._download_morningstar_pricedata()
+            try:
+                self._download_morningstar_pricedata()
+            except MorningStarPriceError:
+                self.error_log.append("Unable to load price data")
+                return pd.DataFrame()
         # read csv in pandas data frame
-        df = pd.read_csv(csv_path,
-                         skiprows=1,
-                         thousands=",",
-                         index_col=0,
-                         skip_blank_lines=True)
-        df.index = pd.to_datetime(df.index, format='%m/%d/%Y')
-        df.sort_index(ascending=True, inplace=True)
-        # remove thousand separators and convert to numeric values
-        df = df.apply(lambda x: pd.to_numeric(x.astype(str).str.replace(',',''), errors='coerce'))
+        try:
+            df = pd.read_csv(csv_path,
+                             skiprows=1,
+                             thousands=",",
+                             index_col=0,
+                             skip_blank_lines=True)
+            df.index = pd.to_datetime(df.index, format='%m/%d/%Y')
+            df.sort_index(ascending=True, inplace=True)
+            # remove thousand separators and convert to numeric values
+            df = df.apply(lambda x: pd.to_numeric(x.astype(str).str.replace(',',''), errors='coerce'))
 
-        return df
+            return df
+        except pd.errors.EmptyDataError:
+            self.error_log.append("No {} report found".format(report_type))
+        except:
+            self.error_log.append("Unable to process report: {}".format(report_type))
+        return pd.DataFrame()
 
     def _load_report_csv_to_df(self, report_type):
         ''' load company csv reports from morningstar (from web or cache)'''
@@ -528,35 +552,41 @@ class Stock():
         if not self._csv_cache_valid(self.report_path(report_type), 86800):
             self._download_morningstar_data(report_type)
 
-        # determine how many rows to skip based on report type
-        skiprows = 1
-        if report_type == "ratios":
-            skiprows=2
+        try:
+            # determine how many rows to skip based on report type
+            skiprows = 1
+            if report_type == "ratios":
+                skiprows=2
 
-        # read csv in pandas data frame
-        df = pd.read_csv(self.report_path(report_type),
-                    skiprows=skiprows,
-                    index_col=0,
-                    thousands=",",
-                    skip_blank_lines=True)
-        # now index = parameters columns = dates
-        # rename TTM  to current date in matching format
-        df = df.rename(index=str,columns={'TTM':datetime.date.today().strftime('%Y-%m')})
-        # slugify the index names (parameter names)
-        df.index = [slugify(i) for i in df.index]
-        # transpose the table to have dates as row keys
-        # now index = dates columns = parameters
-        df = df.transpose()
-        # convert string index objects to datetime objects
-        df.index = pd.to_datetime(df.index, format='%Y-%m')
-        # clean up nan columns
-        df.dropna(axis=1, how='all', inplace=True)
-        # remove thousand separators and convert to numeric values
-        df = df.apply(lambda x: pd.to_numeric(x.astype(str).str.replace(',',''), errors='coerce'))
-        # apply units from key to parameter
-        for key in list(df):
-            if key.endswith("-mil"):
-                df[key[:-4]] = 1e6 * df[key]
-                df.drop(key, axis=1, inplace=True)
-        df = df.apply(pd.to_numeric, errors='ignore')
-        return df
+            # read csv in pandas data frame
+            df = pd.read_csv(self.report_path(report_type),
+                        skiprows=skiprows,
+                        index_col=0,
+                        thousands=",",
+                        skip_blank_lines=True)
+            # now index = parameters columns = dates
+            # rename TTM  to current date in matching format
+            df = df.rename(index=str,columns={'TTM':datetime.date.today().strftime('%Y-%m')})
+            # slugify the index names (parameter names)
+            df.index = [slugify(i) for i in df.index]
+            # transpose the table to have dates as row keys
+            # now index = dates columns = parameters
+            df = df.transpose()
+            # convert string index objects to datetime objects
+            df.index = pd.to_datetime(df.index, format='%Y-%m')
+            # clean up nan columns
+            df.dropna(axis=1, how='all', inplace=True)
+            # remove thousand separators and convert to numeric values
+            df = df.apply(lambda x: pd.to_numeric(x.astype(str).str.replace(',',''), errors='coerce'))
+            # apply units from key to parameter
+            for key in list(df):
+                if key.endswith("-mil"):
+                    df[key[:-4]] = 1e6 * df[key]
+                    df.drop(key, axis=1, inplace=True)
+            df = df.apply(pd.to_numeric, errors='ignore')
+            return df
+        except pd.errors.EmptyDataError:
+            self.error_log.append("No {} report found".format(report_type))
+        except:
+            self.error_log.append("Unable to process report: {}".format(report_type))
+        return pd.DataFrame()
