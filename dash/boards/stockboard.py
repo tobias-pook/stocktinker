@@ -6,7 +6,7 @@ import plotly.graph_objs as go
 
 import numpy as np
 
-from stocktinker.stock import Stock
+from ..stock import Stock
 
 from ..app import app
 from ..app import stock_cache
