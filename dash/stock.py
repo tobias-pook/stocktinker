@@ -166,6 +166,8 @@ class Stock():
 
     @property
     def currency(self):
+        if self._ratios is None:
+            self._ratios = self._load_report_csv_to_df('ratios')
         ''' Dirty hack to get currency '''
         for key in list(self.ratios):
             if key.startswith('earnings-per-share-'):
@@ -174,6 +176,8 @@ class Stock():
     @property
     def company_name(self):
         if self._company_name is None:
+            if self._ratios is None:
+                self._ratios = self._load_report_csv_to_df('ratios')
             with open(self.report_path("ratios"),"r") as csvfile:
                 reader = csv.reader(csvfile)
                 for i,row in enumerate(reader):
@@ -268,6 +272,8 @@ class Stock():
 
 
     def _get_average_growth_rate(self, key):
+        #if self._ratios is None:
+        #    self._ratios = self._load_report_csv_to_df('ratios')
         average_df = self.ratios[key].dropna(axis=0, how='any')
         n = len(average_df)
         # get a logarithmic weighting function for last n years
@@ -520,8 +526,8 @@ class Stock():
         ''' Check if a csv file exists or may need an update '''
         if not os.path.exists(csv_path):
             return False
-        if time.time() - os.path.getmtime(csv_path) < cache_lifetime:
-            upate = False
+        #if time.time() - os.path.getmtime(csv_path) < cache_lifetime:
+        #    return False
         return True
 
     def _load_price_csv_to_df(self):
@@ -531,6 +537,7 @@ class Stock():
                 self._download_morningstar_pricedata()
             except MorningStarPriceError:
                 self.error_log.append("Unable to load price data")
+                raise
                 return pd.DataFrame()
         # read csv in pandas data frame
         try:
@@ -538,7 +545,8 @@ class Stock():
                              skiprows=1,
                              thousands=",",
                              index_col=0,
-                             skip_blank_lines=True)
+                             skip_blank_lines=True,
+                             engine='python')
             df.index = pd.to_datetime(df.index, format='%m/%d/%Y')
             df.sort_index(ascending=True, inplace=True)
             # remove thousand separators and convert to numeric values
@@ -568,7 +576,8 @@ class Stock():
                         skiprows=skiprows,
                         index_col=0,
                         thousands=",",
-                        skip_blank_lines=True)
+                        skip_blank_lines=True,
+                        engine='python')
             # now index = parameters columns = dates
             # rename TTM  to current date in matching format
             df = df.rename(index=str,columns={'TTM':datetime.date.today().strftime('%Y-%m')})
