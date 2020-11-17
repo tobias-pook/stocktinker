@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Sample SAM Template for Dash
+
+Resources:
+  Auth:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: dash/cognito_auth.lambda_handler
+      Runtime: python3.6
+      Timeout: 30
+      Environment:
+        Variables:
+          USER_POOL_ID: poolid
+          CLIENT_ID: clientIds
+          CLIENT_SECRET: secret
+  Dash:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: dash/lambda.lambda_handler
+      Runtime: python3.6
+      Timeout: 30
+      Environment:
+        Variables:
+          STOCKTINKER_DATA: /tmp/morningstar_data
+          STOCKTINKER_REPORTS: /tmp/reports
+      Events:
+        DashEndpoint:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+Outputs:
+  DashAppURL:
+    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/dash'
