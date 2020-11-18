@@ -15,9 +15,9 @@ app.layout = html.Div([
 @app.callback(Output('page-content', 'children'),
               [Input('url', 'pathname')])
 def display_page(pathname):
-    if pathname == '/screener':
+    if pathname.endswith('/screener'):
          return screenerboard.layout
-    elif pathname == '/stock':
+    elif pathname.endswith('/stock'):
          return stockboard.layout
     else:
         return '404'
