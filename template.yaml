@@ -14,7 +14,7 @@ Resources:
           USER_POOL_ID: poolid
           CLIENT_ID: clientIds
           CLIENT_SECRET: secret
-  Dash:
+  Stock:
     Type: AWS::Serverless::Function
     Properties:
       Handler: dash/lambda.lambda_handler
