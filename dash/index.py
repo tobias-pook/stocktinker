@@ -3,7 +3,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 
 from dash.app import app
-from .boards import stockboard
+from .boards import screenerboard, stockboard
 
 
 app.layout = html.Div([
@@ -15,4 +15,9 @@ app.layout = html.Div([
 @app.callback(Output('page-content', 'children'),
               [Input('url', 'pathname')])
 def display_page(pathname):
-    return stockboard.layout
+    if pathname == '/screener':
+         return screenerboard.layout
+    elif pathname == '/stock':
+         return stockboard.layout
+    else:
+        return '404'
