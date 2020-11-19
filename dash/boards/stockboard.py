@@ -1,12 +1,12 @@
 import dash
 from dash.dependencies import Input, Output, State
-import dash_core_components as dcc
 import dash_html_components as html
+import dash_core_components as dcc
 import plotly.graph_objs as go
 
 import numpy as np
 
-from stocktinker.stock import Stock
+from dash.stock import Stock
 
 from ..app import app
 from ..app import stock_cache
@@ -33,17 +33,17 @@ layout = html.Div([
                     dcc.Graph(id='stock-historic-closing-price-plot')
                     ])
         ],
-        style={'width': '48%', 'display': 'inline-block'}
+        style={'max-width': '75%', 'display': 'inline-block', 'overflow-x':'auto'}
     ),
     html.Div(
         [  html.Table(id='stock-rule1-summary-table'),
            html.Table(id='stock-projection-input-table'),
            html.Table(id='stock-projection-output-table'),
         ],
-        style={'width': '48%',
+        style={'width': '18%',
                'display': 'inline-block',
                'vertical-align':'top',
-               'padding': '10px'}
+               'padding': '10px', 'margin-left':'10px'}
     ),
     html.H1("Key Ratios"),
     html.Div([ html.Table(id='stock-ratios-table')],
@@ -55,6 +55,7 @@ layout = html.Div([
               [Input('clear-cache-button', 'n_clicks')],
             [ State('stock-symbol-input', 'value')])
 def stock_clear_cache_on_click(_nclicks, symbol):
+    print(symbol + '- stock_clear_cache_on_click')
     stock = stock_cache.get(symbol, Stock(symbol))
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
@@ -62,24 +63,57 @@ def stock_clear_cache_on_click(_nclicks, symbol):
     del stock_cache[symbol]
     return 1
 
+@app.callback([Output('stock-projection-input-table', 'children'),
+			  Output('stock-ratios-summary-table', 'children'),
+			  Output('stock-ratios-table', 'children'),
+			  Output('stock-company-name-label', 'children'),
+			  Output('stock-rule1-summary-table', 'children'),
+			  Output('stock-rule1-growth-plot', 'figure'),
+			  Output('stock-historic-closing-price-plot', 'figure')
+			  ],
+              [Input('submit-button', 'n_clicks')#,
+                #Input('stock-projection-table-nyear-input', 'value'),
+                #Input('stock-projection-table-eps-growth-rate-input', 'value'),
+                #Input('stock-projection-table-target-yield-input', 'value'),
+                #Input('stock-projection-table-target-pe-input', 'value'),
+                #Input('stock-projection-table-expected-dividends-input', 'value'),
+                #Input('stock-projection-table-projected-dividends-growth-input', 'value'),
+                ],
+              [ State('stock-symbol-input', 'value')])
+def on_stock_update(n_clicks,
+                   # n_years,
+                   # estimated_growth,
+                    #target_yield,
+                    #target_pe,
+                    #expected_dividends,
+                    #projected_dividends_growth,
+                    symbol):
+    stock = stock_cache.get(symbol, Stock(symbol))
+    stock_projection_input_table_output = stock_projection_input_table_on_stock_update(n_clicks, symbol)
+    stock_ratios_summary_table_output = update_stock_ratios_summary_table(n_clicks, symbol)
+    stock_ratios_table_output = update_stock_ratios_table(n_clicks, symbol)
+    stock_company_name_output = onsumbit_stock_company_name_label(n_clicks, symbol)
+    stock_rule1_summary_table_output = onsumbit_stock_rule1_summary_table(n_clicks, symbol)
+    growth_rate_graph = update_growth_rate_graph(n_clicks, symbol)
+    price_graph_output = update_price_graph(n_clicks, symbol)
+    return stock_projection_input_table_output, stock_ratios_summary_table_output, stock_ratios_table_output, stock_company_name_output, stock_rule1_summary_table_output, growth_rate_graph, price_graph_output
 @app.callback(Output('stock-projection-output-table', 'children'),
-              [Input('submit-button', 'n_clicks'),
-                Input('stock-projection-table-nyear-input', 'value'),
+              [Input('stock-projection-table-nyear-input', 'value'),
                 Input('stock-projection-table-eps-growth-rate-input', 'value'),
                 Input('stock-projection-table-target-yield-input', 'value'),
                 Input('stock-projection-table-target-pe-input', 'value'),
                 Input('stock-projection-table-expected-dividends-input', 'value'),
                 Input('stock-projection-table-projected-dividends-growth-input', 'value'),
                 ],
-              [ State('stock-symbol-input', 'value')])
-def stock_projection_output_table_on_stock_update(n_clicks,
-                                                 n_years,
+               [ State('stock-symbol-input', 'value')])
+def stock_projection_output_table_on_stock_update_inputs(n_years,
                                                  estimated_growth,
                                                  target_yield,
                                                  target_pe,
                                                  expected_dividends,
                                                  projected_dividends_growth,
                                                  symbol):
+    print('TTT_sstock_projection_output_table_on_stock_update')
     stock = stock_cache.get(symbol, Stock(symbol))
     try:
         if symbol not in stock_cache:
@@ -96,21 +130,51 @@ def stock_projection_output_table_on_stock_update(n_clicks,
         rows.append(html.Tr([html.Th("Projected Total Dividends"), html.Td(round(stock.projected_dividend_earnings,2))]))
         rows.append(html.Tr([html.Th("Target Price"), html.Td(round(stock.target_price,2))]))
         rows.append(html.Tr([html.Th("Current Price"), html.Td(round(stock.current_price,2))]))
-    except:
+    except Exception as e:
+        print("Error" + str(e))
+        #raise
+        return []
+    return rows
+def stock_projection_output_table_on_stock_update(n_clicks,
+                                                # n_years,
+                                                # estimated_growth,
+                                                # target_yield,
+                                                # target_pe,
+                                                # expected_dividends,
+                                                 #projected_dividends_growth,
+                                                 symbol):
+    print('stock_projection_output_table_on_stock_update')
+    stock = stock_cache.get(symbol, Stock(symbol))
+    try:
+        if symbol not in stock_cache:
+            stock_cache[symbol] = stock
+        #stock.n_projection_years = int(n_years)
+        #stock.estimated_growth = float(estimated_growth) / 100.
+        #stock.target_yield = float(target_yield) / 100.
+        #stock.target_pe = float(target_pe)
+        #stock.expected_dividends = float(expected_dividends)
+        #stock.projected_dividends_growth = float(projected_dividends_growth) / 100.
+        rows = []
+
+        rows.append(html.Tr([html.Th("Projected price"), html.Td(round(stock.price_projection,2))]))
+        #rows.append(html.Tr([html.Th("Projected Total Dividends"), html.Td(round(stock.projected_dividend_earnings,2))]))
+        rows.append(html.Tr([html.Th("Target Price"), html.Td(round(stock.target_price,2))]))
+        rows.append(html.Tr([html.Th("Current Price"), html.Td(round(stock.current_price,2))]))
+    except Exception as e:
+        print("Error" + str(e))
+        #raise
         return []
     return rows
 
-@app.callback(Output('stock-projection-input-table', 'children'),
-              [Input('submit-button', 'n_clicks')],
-              [ State('stock-symbol-input', 'value')])
 def stock_projection_input_table_on_stock_update(n_clicks, symbol):
+    print('stock_projection_input_table_on_stock_update')
     stock = stock_cache.get(symbol, Stock(symbol))
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
 
     rows = []
     default_input_kwargs = {"type" : "number",
-                            "inputmode" : "numeric",
+                            "inputMode" : "numeric",
                             }
 
     n_years_input = dcc.Input(id='stock-projection-table-nyear-input',
@@ -120,7 +184,9 @@ def stock_projection_input_table_on_stock_update(n_clicks, symbol):
 
     try:
         value = round(stock.estimated_growth * 100.,2)
-    except:
+    except Exception as e:
+        print("Error:" + str(e)) 
+        raise
         value = 0
     eps_growth_input = dcc.Input(id='stock-projection-table-eps-growth-rate-input',
                                  value=value,
@@ -134,7 +200,9 @@ def stock_projection_input_table_on_stock_update(n_clicks, symbol):
 
     try:
         value = round(stock.target_pe,1)
-    except:
+    except Exception as e:
+        print("Error" + str(e))
+        raise
         value = 0
     target_pe = dcc.Input(id='stock-projection-table-target-pe-input',
                                                value=value,
@@ -143,7 +211,9 @@ def stock_projection_input_table_on_stock_update(n_clicks, symbol):
 
     try:
         value = round(stock.expected_dividends,2)
-    except:
+    except Exception as e:
+        print("Error:" + str(e))
+        raise
         value = 0
     expected_dividends = dcc.Input(id='stock-projection-table-expected-dividends-input',
                                                    value=value,
@@ -152,7 +222,9 @@ def stock_projection_input_table_on_stock_update(n_clicks, symbol):
 
     try:
         value = round(stock.projected_dividends_growth * 100. ,2)
-    except:
+    except Exception as e:
+        print("Error:" + str(e))
+        raise
         value = 0
     projected_dividends_growth = dcc.Input(id='stock-projection-table-projected-dividends-growth-input',
                                                    value=value,
@@ -161,10 +233,8 @@ def stock_projection_input_table_on_stock_update(n_clicks, symbol):
 
     return rows
 
-@app.callback(Output('stock-ratios-summary-table', 'children'),
-              [Input('submit-button', 'n_clicks')],
-              [ State('stock-symbol-input', 'value')])
 def update_stock_ratios_summary_table(n_clicks, symbol):
+    print('update_stock_ratios_summary_table')
     stock = stock_cache.get(symbol, Stock(symbol))
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
@@ -184,10 +254,8 @@ def update_stock_ratios_summary_table(n_clicks, symbol):
     keys = [k for k in desired_keys if k in existing_keys]
     return fundamentals_to_table(stock.ratios[keys], n_years=8)
 
-@app.callback(Output('stock-ratios-table', 'children'),
-              [Input('submit-button', 'n_clicks')],
-              [ State('stock-symbol-input', 'value')])
 def update_stock_ratios_table(n_clicks, symbol):
+    print('update_stock_ratios_table')
     stock = stock_cache.get(symbol, Stock(symbol))
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
@@ -218,6 +286,7 @@ def update_stock_ratios_table(n_clicks, symbol):
     return fundamentals_to_table(stock.ratios[keys]) + [html.Tr([html.Th("Error"), html.Td(e)]) for e in stock.error_log ]
 
 def fundamentals_to_table(df,n_years=99):
+    print('fundamentals_to_table')
     #
     # [print(s.strftime("%m-%Y")) for s in df.index)]
     n_years = min(len(df.index), n_years)
@@ -249,28 +318,24 @@ def fundamentals_to_table(df,n_years=99):
         body.append(html.Tr([html.Th(formated_value(df, key, header=True))] + list(reversed([ html.Td(formated_value(df, key, iloc=i)) for i in range(len(df))]))[:n_years] ) )
     return header + body
 
-@app.callback(Output('stock-company-name-label', 'children'),
-              [Input('submit-button', 'n_clicks')],
-              [ State('stock-symbol-input', 'value')])
 def onsumbit_stock_company_name_label(n_clicks, symbol):
+    print('onsumbit_stock_company_name_label')
+    print(symbol)
     stock = stock_cache.get(symbol, Stock(symbol))
+    #sprint(stock.company_name())
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
     return  u'{name}'.format(name=stock.company_name)
 
-@app.callback(Output('stock-rule1-summary-table', 'children'),
-              [Input('submit-button', 'n_clicks')],
-              [ State('stock-symbol-input', 'value')])
 def onsumbit_stock_rule1_summary_table(n_clicks, symbol):
+    print('onsumbit_stock_rule1_summary_table')
     stock = stock_cache.get(symbol, Stock(symbol))
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
     return  [html.Tr([html.Th(s[0]), html.Td(s[1])]) for s in stock.get_summary_info()]
 
-@app.callback(Output('stock-rule1-growth-plot', 'figure'),
-              [Input('submit-button', 'n_clicks')],
-              [ State('stock-symbol-input', 'value')])
 def update_growth_rate_graph(n_clicks, symbol):
+    print('update_growth_rate_graph')
     stock = stock_cache.get(symbol, Stock(symbol))
     if symbol not in stock_cache:
         stock_cache[symbol] = stock
@@ -330,10 +395,8 @@ def update_growth_rate_graph(n_clicks, symbol):
 
     }
 
-@app.callback(Output('stock-historic-closing-price-plot', 'figure'),
-              [Input('submit-button', 'n_clicks')],
-              [ State('stock-symbol-input', 'value')])
 def update_price_graph(n_clicks, symbol):
+    print('update_price_graph')
     stock = stock_cache.get(symbol, Stock(symbol))
     if symbol not in stock_cache:
         stock_cache[symbol] = stock

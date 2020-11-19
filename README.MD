@@ -1,40 +1,115 @@
-# Stocktinker
+# Stocktinker 
+A tool to play around with stock data. 
+## Deployment to AWS Lambda
+based on https://github.com/ratajczak/dash-lambda
+The Serverless Application Model Command Line Interface (SAM CLI) is an extension of the AWS CLI that adds functionality for building and testing Lambda applications. It uses Docker to run your functions in an Amazon Linux environment that matches Lambda. It can also emulate your application's build environment and API.
 
-A tool to play around with stock data. Currently in alpha
+To use the SAM CLI, you need the following tools.
 
-## Installation
-The package is currently not listed in pypip. You may however use pip to install
-it locally:
+* SAM CLI - [Install the SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
+* [Python 3 installed](https://www.python.org/downloads/)
+* Docker - [Install Docker community edition](https://hub.docker.com/search/?type=edition&offering=community)
 
-     cd stocktinker
-     pip install -e .
+To build and deploy your application for the first time, run the following in your shell:
 
-## Using the excel export
-The script `create_xls_report.py` allows to create excel reports for a given list
-of ticker symbols. One xls file with a detailed report is created in `/reports` for every ticker
-symbol in addition to a summary table for all selected tickers.
+```bash
+sam build --use-container
+sam deploy --guided
+```
 
-## Using the dashboard
+The first command will build the source of your application. The second command will package and deploy your application to AWS, with a series of prompts:
 
-### dash installation
-The dashboard uses plotly and dash, which currently need a fixed set of versions
-to work together as intended (see [dash installation isntructions](https://plot.ly/dash/installation))
+* **Stack Name**: The name of the stack to deploy to CloudFormation. This should be unique to your account and region, and a good starting point would be something matching your project name.
+* **AWS Region**: The AWS region you want to deploy your app to.
+* **Confirm changes before deploy**: If set to yes, any change sets will be shown to you before execution for manual review. If set to no, the AWS SAM CLI will automatically deploy application changes.
+* **Allow SAM CLI IAM role creation**: Many AWS SAM templates, including this example, create AWS IAM roles required for the AWS Lambda function(s) included to access AWS services. By default, these are scoped down to minimum required permissions. To deploy an AWS CloudFormation stack which creates or modified IAM roles, the `CAPABILITY_IAM` value for `capabilities` must be provided. If permission isn't provided through this prompt, to deploy this example you must explicitly pass `--capabilities CAPABILITY_IAM` to the `sam deploy` command.
+* **Save arguments to samconfig.toml**: If set to yes, your choices will be saved to a configuration file inside the project, so that in the future you can just re-run `sam deploy` without parameters to deploy changes to your application.
 
-    pip install dash==0.19.0  # The core dash backend
-    pip install dash-renderer==0.11.1  # The dash front-end
-    pip install dash-html-components==0.8.0  # HTML components
-    pip install dash-core-components==0.14.0  # Supercharged components
-    pip install plotly --upgrade  # Latest Plotly graphing library
+You can find your API Gateway Endpoint URL in the output values displayed after deployment.
 
-### Usage
-The script `start_tinker_dashboard.py` should be available after instlling this
-package and dash. Running it creates a local server instance which can be
-accessed in your browser under the address: `http://127.0.0.1:8050`
+## Use the SAM CLI to build and test locally
 
-currently two routes are implemented:
+Build your application with the `sam build --use-container` command.
 
-* `/stock` Has an input field for a single stock ticker symbol and shows a summary
-of key ratios, growth plots and price charts for the selected stock.
-* `/screener` Allows to add a list of plots into a one plotly scatter plot.
-The displayed information in the x and y axis and the size of point in the plots
-can be chosen from a list of available key ratios for the selected stocks.
+```bash
+stocktinker-app$ sam build --use-container
+```
+
+The SAM CLI installs dependencies defined in `requirements.txt`, creates a deployment package, and saves it in the `.aws-sam/build` folder.
+
+Test a single function by invoking it directly with a test event. An event is a JSON document that represents the input that the function receives from the event source. Test events are included in the `events` folder in this project.
+
+Run functions locally and invoke them with the `sam local invoke` command.
+
+```bash
+stocktinker-app$ sam local invoke Dash --event events/event.json
+```
+
+The SAM CLI can also emulate your application's API. Use the `sam local start-api` to run the API locally on port 3000.
+
+```bash
+stocktinker-app$ sam local start-api
+stocktinker-app$ curl http://localhost:3000/
+```
+
+The SAM CLI reads the application template to determine the API's routes and the functions that they invoke. The `Events` property on each function's definition includes the route and method for each path.
+
+```yaml
+  Auth:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: dash/cognito_auth.lambda_handler
+      Runtime: python3.6
+      Timeout: 30
+      Environment:
+        Variables:
+          USER_POOL_ID: <poolid>
+          CLIENT_ID: <clientId>
+          CLIENT_SECRET: <secret>
+  Dash:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: dash/lambda.lambda_handler
+      Runtime: python3.6
+      Timeout: 30
+      Environment:
+        Variables:
+          STOCKTINKER_DATA: /tmp/morningstar_data
+          STOCKTINKER_REPORTS: /tmp/reports
+      Events:
+        DashEndpoint:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+```
+
+## Add a resource to your application
+The application template uses AWS Serverless Application Model (AWS SAM) to define application resources. AWS SAM is an extension of AWS CloudFormation with a simpler syntax for configuring common serverless application resources such as functions, triggers, and APIs. For resources not included in [the SAM specification](https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md), you can use standard [AWS CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html) resource types.
+
+## Fetch, tail, and filter Lambda function logs
+
+To simplify troubleshooting, SAM CLI has a command called `sam logs`. `sam logs` lets you fetch logs generated by your deployed Lambda function from the command line. In addition to printing the logs on the terminal, this command has several nifty features to help you quickly find the bug.
+
+`NOTE`: This command works for all AWS Lambda functions; not just the ones you deploy using SAM.
+
+```bash
+stocktinker-app$ sam logs -n Dash --stack-name stocktinker --tail
+```
+
+You can find more information and examples about filtering Lambda function logs in the [SAM CLI Documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-logging.html).
+
+
+## Cleanup
+
+To delete the sample application that you created, use the AWS CLI. Assuming you used your project name for the stack name, you can run the following:
+
+```bash
+aws cloudformation delete-stack --stack-name stocktinker 
+```
+
+## Resources
+
+See the [AWS SAM developer guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html) for an introduction to SAM specification, the SAM CLI, and serverless application concepts.
+
+Next, you can use AWS Serverless Application Repository to deploy ready to use Apps that go beyond hello world samples and learn how authors developed their applications: [AWS Serverless Application Repository main page](https://aws.amazon.com/serverless/serverlessrepo/)
