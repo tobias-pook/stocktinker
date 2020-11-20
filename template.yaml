@@ -32,4 +32,4 @@ Resources:
             Method: ANY
 Outputs:
   DashAppURL:
-    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/dash'
+    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/stock'
