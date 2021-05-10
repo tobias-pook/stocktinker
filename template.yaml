@@ -11,8 +11,8 @@ Resources:
       Timeout: 30
       Environment:
         Variables:
-          COGNITO_AUTH_CLIENT_ID: 3vqe579ric657cba8pg587akmp
-          COGNITO_AUTH_CLIENT_SECRET: o5b6m6c1dekehvc7nhksvsv9st2hljh7vbva33u1jbm9tsmnt8m
+          COGNITO_AUTH_CLIENT_ID: someappKye
+          COGNITO_AUTH_CLIENT_SECRET: somesicret
           DEFAULT_REGION: eu-central-1
           AWS_COGNITO_DOMAIN: stocktinker-dev.auth.eu-central-1.amazoncognito.com
           AWS_COGNITO_USER_POOL_ID: eu-central-1_txxuWaPmR
@@ -34,8 +34,8 @@ Resources:
         Variables:
           STOCKTINKER_DATA: /tmp/morningstar_data
           STOCKTINKER_REPORTS: /tmp/reports
-          COGNITO_AUTH_CLIENT_ID: 3vqe579ric657cba8pg587akmp
-          COGNITO_AUTH_CLIENT_SECRET: o5b6m6c1dekehvc7nhksvsv9st2hljh7vbva33u1jbm9tsmnt8m
+          COGNITO_AUTH_CLIENT_ID: someappKye
+          COGNITO_AUTH_CLIENT_SECRET: somesicret
           DEFAULT_REGION: eu-central-1
           AWS_COGNITO_DOMAIN: stocktinker-dev.auth.eu-central-1.amazoncognito.com
           AWS_COGNITO_USER_POOL_ID: eu-central-1_txxuWaPmR
