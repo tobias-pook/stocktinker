@@ -3,33 +3,97 @@ Transform: AWS::Serverless-2016-10-31
 Description: Sample SAM Template for Dash
 
 Resources:
-  Auth:
+  Login:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: dash/cognito_auth.lambda_handler
-      Runtime: python3.6
+      Handler: dash/login.lambda_handler
+      Runtime: python3.8
       Timeout: 30
       Environment:
         Variables:
-          USER_POOL_ID: poolid
-          CLIENT_ID: clientIds
-          CLIENT_SECRET: secret
-  Stock:
+          COGNITO_AUTH_CLIENT_ID: 3vqe579ric657cba8pg587akmp
+          COGNITO_AUTH_CLIENT_SECRET: o5b6m6c1dekehvc7nhksvsv9st2hljh7vbva33u1jbm9tsmnt8m
+          DEFAULT_REGION: eu-central-1
+          AWS_COGNITO_DOMAIN: stocktinker-dev.auth.eu-central-1.amazoncognito.com
+          AWS_COGNITO_USER_POOL_ID: eu-central-1_txxuWaPmR
+          AWS_COGNITO_REDIRECT_URL: https://gn5yq3pda4.execute-api.eu-central-1.amazonaws.com/Prod/login/loggedin
+          JWT_COOKIE_DOMAIN: gn5yq3pda4.execute-api.eu-central-1.amazonaws.com
+      Events:
+        DashEndpoint:
+          Type: Api
+          Properties:
+            Path: /login/{proxy+}
+            Method: ANY
+  Dash:
     Type: AWS::Serverless::Function
     Properties:
       Handler: dash/lambda.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.8
       Timeout: 30
       Environment:
         Variables:
           STOCKTINKER_DATA: /tmp/morningstar_data
           STOCKTINKER_REPORTS: /tmp/reports
+          COGNITO_AUTH_CLIENT_ID: 3vqe579ric657cba8pg587akmp
+          COGNITO_AUTH_CLIENT_SECRET: o5b6m6c1dekehvc7nhksvsv9st2hljh7vbva33u1jbm9tsmnt8m
+          DEFAULT_REGION: eu-central-1
+          AWS_COGNITO_DOMAIN: stocktinker-dev.auth.eu-central-1.amazoncognito.com
+          AWS_COGNITO_USER_POOL_ID: eu-central-1_txxuWaPmR
+          AWS_COGNITO_REDIRECT_URL: https://gn5yq3pda4.execute-api.eu-central-1.amazonaws.com/Prod/login/loggedin
+          JWT_COOKIE_DOMAIN: gn5yq3pda4.execute-api.eu-central-1.amazonaws.com
       Events:
         DashEndpoint:
           Type: Api
           Properties:
             Path: /{proxy+}
             Method: ANY
+  SendMails:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: dash/send_mail_lambda.lambda_handler
+      Runtime: python3.8
+      Timeout: 30
+      Environment:
+        Variables:
+          STOCKTINKER_DATA: /tmp/morningstar_data
+          STOCKTINKER_REPORTS: /tmp/reports
+          MAIL_FROM: alerts@3f.rocks
+      Events:
+        CloudwatchEvents:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 day)
+            Enabled: true
+  SettingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: UserSettings
+      AttributeDefinitions: 
+        - AttributeName: user_name
+          AttributeType: S
+      KeySchema: 
+        - AttributeName: user_name
+          KeyType: HASH
+      ProvisionedThroughput: 
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+  WatchListTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: UserWatchList
+      AttributeDefinitions: 
+        - AttributeName: user_name
+          AttributeType: S
+        - AttributeName: company
+          AttributeType: S
+      KeySchema: 
+        - AttributeName: user_name
+          KeyType: HASH
+        - AttributeName: company
+          KeyType: RANGE
+      ProvisionedThroughput: 
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
 Outputs:
   DashAppURL:
-    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/stock'
+    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/dash'

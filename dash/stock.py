@@ -74,6 +74,7 @@ class Stock():
         self._balancesheet = None
         self._ratios = None
         self._quote = None
+        self._calculated_eps = None
         self._historic_prices = None
         self._filters = filters
         self._target_pe = None
@@ -108,23 +109,13 @@ class Stock():
     def get_summary_info(self):
         try:
             summary_infos = [
-                ("Growth rates","%"),
-                ("average growth", 100 * self.estimated_growth),
-                ("estimated eps growth", 100 * self.estimated_eps_growth),
-                ("estimated revenue growth", 100 * self.estimated_revenue_growth),
-                ("estimated bookvalue growth", 100 * self.estimated_bookvalue_growth),
-                ("estimated operational cashflow growth", 100 * self.estimated_operational_cashflow_growth),
-                ("",""),
-                ("currency", self.currency),
-                ("eps TTM", self.ratios["earnings-per-share-%s" % self.currency].iloc[-1]),
-
+                ("Average Growth", 100 * self.estimated_growth),
+                ("Average EPS Growth", 100 * self.estimated_eps_growth),
+                ("Average Revenue Growth", 100 * self.estimated_revenue_growth),
+                ("Average Bookvalue Growth", 100 * self.estimated_bookvalue_growth),
+                ("Average Operational Cashflow Growth", 100 * self.estimated_operational_cashflow_growth),
+                ("Average Free Cashflow Growth", 100 * self.estimated_free_cash_flow_growth)
             ]
-
-            if 'pe' in self.ratios:
-                summary_infos += [("min p/e", min(self.ratios["pe"]) ),
-                                    ("max p/e", max(self.ratios["pe"])),
-                                    ("0.75 perc p/e", self.ratios["pe"].quantile(q=0.75, interpolation='linear')),
-                                    ("",""),]
         except KeyError as e:
             self.error_log.append("Field not found {}".format(str(e)))
             return []
@@ -251,6 +242,9 @@ class Stock():
     @property
     def estimated_operational_cashflow_growth(self):
         return self._get_average_growth_rate('operating-cashflow-ps-growth')
+    @property
+    def estimated_free_cash_flow_growth(self):
+        return self._get_average_growth_rate('free-cash-flow-ps-growth')
 
     @property
     def estimated_growth(self):
@@ -285,7 +279,7 @@ class Stock():
 
     def get_estimated_eps(self, nyears=10):
 
-        return self.ratios['earnings-per-share-%s' % self.currency].iloc[-1] * pow(1 + self.estimated_growth, nyears)
+        return self.calculated_eps * pow(1 + self.estimated_growth, nyears)
 
     @property
     def current_price(self):
@@ -315,7 +309,18 @@ class Stock():
     @property
     def current_pe(self):
         return float(self.current_price) / float(self.ratios["earnings-per-share-%s" % self.currency].iloc[-1])
+    @property
+    def calculated_eps(self):
+        if self._calculated_eps is None:
+            if "earnings-per-share-%s" % self.currency not in self.ratios:
+                return -1.
+            self._calculated_eps = float(self.ratios["earnings-per-share-%s" % self.currency].iloc[-1])
+        return self._calculated_eps
 
+    @calculated_eps.setter
+    def calculated_eps(self, value):
+        self._calculated_eps = value
+    
     @property
     def target_pe(self):
         if self._target_pe is None:
@@ -410,12 +415,16 @@ class Stock():
             if not self._ratios.empty:
                 self.add_book_value_ps_growth()
                 self.add_earnings_ps_growth()
+                self.add_free_cash_flow_ps_growth()
                 self.add_revenue_ps_growth()
                 self.add_operating_cashflow_ps_growth()
                 self.add_long_term_debt_ps_growth()
                 self.add_short_term_debt_ps_growth()
                 self.add_total_debt()
+                self.add_total_balancesheet_debt()
                 self.add_debt_ratios()
+                self.add_margins_ratios()
+                #self.add_depreciation()
                 self.add_pe()
                 if self.has_dividends:
                     self._ratios['dividends-%s' % self.currency].fillna(0)
@@ -448,6 +457,8 @@ class Stock():
 
     def add_earnings_ps_growth(self):
         self._ratios['earnings-ps-growth'] = self._ratios['earnings-per-share-%s' % self.currency].pct_change()
+    def add_free_cash_flow_ps_growth(self):
+        self._ratios['free-cash-flow-ps-growth'] = self._ratios['free-cash-flow-per-share-%s' % self.currency].pct_change()
 
     def add_operating_cashflow_ps_growth(self):
         self._ratios['operating-cashflow-per-share-%s' % self.currency] = self._ratios['operating-cash-flow-%s' % self.currency] / self._ratios['shares']
@@ -455,24 +466,71 @@ class Stock():
 
     def add_long_term_debt_ps_growth(self):
         if 'long-term-debt' in self.balancesheet:
-            self._ratios['long-term-debt'] = self.balancesheet['long-term-debt']
+            #self._ratios['long-term-debt'] = self.balancesheet['long-term-debt']
             self._ratios['long-term-debt-ps-growth'] = (self.balancesheet['long-term-debt'] / self._ratios['shares']).pct_change()
             self._ratios['long-term-debt-ps'] = self.balancesheet['long-term-debt'] / self._ratios['shares']
 
     def add_short_term_debt_ps_growth(self):
-        self._ratios['short-term-debt'] = self.balancesheet['short-term-debt']
-        self._ratios['short-term-debt-ps-growth'] = (self.balancesheet['short-term-debt'] / self._ratios['shares']).pct_change()
-        self._ratios['short-term-debt-ps'] = self.balancesheet['short-term-debt'] / self._ratios['shares']
+        if 'short-term-debt' in self._ratios:
+            self._ratios['short-term-debt'] = self._ratios['short-term-debt']
+            self._ratios['short-term-debt-ps-growth'] = (self._ratios['short-term-debt'] / self._ratios['shares']).pct_change()
+            self._ratios['short-term-debt-ps'] = self._ratios['short-term-debt'] / self._ratios['shares']
 
     def add_total_debt(self):
-        self._ratios['total-debt-%s' % self.currency] = self.balancesheet['short-term-debt'] + self.balancesheet['long-term-debt']
-        self._ratios['total-debt-per-share-%s' % self.currency] = self._ratios['total-debt-%s' % self.currency] / self._ratios['shares']
-        self._ratios['total-debt-growth'] = (self._ratios['total-debt-%s' % self.currency]).pct_change()
+        if 'short-term-debt' in self._ratios:
+            if 'long-term-debt' in self._ratios:
+                self._ratios['ratios-total-debt-%s' % self.currency] = self._ratios['short-term-debt'] + self._ratios['long-term-debt']
+            else:
+                self._ratios['ratios-total-debt-%s' % self.currency] = self._ratios['short-term-debt']
+            self._ratios['ratios-total-debt-per-share-%s' % self.currency] = self._ratios['ratios-total-debt-%s' % self.currency] / self._ratios['shares']
+            self._ratios['ratios-total-debt-growth'] = (self._ratios['ratios-total-debt-%s' % self.currency]).pct_change()
+        else:
+            self._ratios['total-debt-%s' % self.currency] = 0
+            self._ratios['total-debt-per-share-%s' % self.currency] = 0
+            self._ratios['total-debt-growth'] = 0
+    def add_total_balancesheet_debt(self):
+        if 'short-term-debt' in self.balancesheet:
+            self.balancesheet['short-term-debt'] = self.balancesheet['short-term-debt'].fillna(value=0)
+            if 'long-term-debt' in self.balancesheet:                
+                self.balancesheet['long-term-debt'] = self.balancesheet['long-term-debt'].fillna(value=0)
+                self._ratios['total-debt-%s' % self.currency] = self.balancesheet['short-term-debt'] + self.balancesheet['long-term-debt']
+            else:
+                self._ratios['total-debt-%s' % self.currency] = self.balancesheet['short-term-debt']
+        
+            self._ratios['total-debt-per-share-%s' % self.currency] = self._ratios['total-debt-%s' % self.currency] / self._ratios['shares']
+        elif 'long-term-debt' in self.balancesheet:
+            self.balancesheet['long-term-debt'] = self.balancesheet['long-term-debt'].fillna(value=0)
+            self._ratios['total-debt-%s' % self.currency] = self.balancesheet['long-term-debt']
+            self._ratios['total-debt-per-share-%s' % self.currency] = self._ratios['total-debt-%s' % self.currency] / self._ratios['shares']
+        else:
+            self._ratios['total-debt-%s' % self.currency] = 0
+            self._ratios['total-debt-per-share-%s' % self.currency] = 0
+            self._ratios['total-debt-growth'] = 0
 
     def add_debt_ratios(self):
-        self._ratios['debt-per-earnings'] = self._ratios['total-debt-per-share-%s' % self.currency] / self._ratios['earnings-per-share-%s' % self.currency]
-        self._ratios['debt-per-bookvalue'] = self._ratios['total-debt-per-share-%s' % self.currency] / self._ratios['book-value-per-share-%s' % self.currency]
+        if 'total-debt-per-share-%s' % self.currency in self._ratios:
+            self._ratios['debt-per-earnings'] = self._ratios['total-debt-per-share-%s' % self.currency] / self._ratios['earnings-per-share-%s' % self.currency]
+        if 'total-debt-per-share-%s' % self.currency in self._ratios:
+            self._ratios['debt-per-bookvalue'] = self._ratios['total-debt-per-share-%s' % self.currency] / self._ratios['book-value-per-share-%s' % self.currency]
+        self._ratios['debt-per-free-cashflow'] = self._ratios['total-debt-%s' % self.currency] / self._ratios['free-cash-flow-%s' % self.currency]
+        if 'cash-and-cash-equivalents' in self.balancesheet:
+            self._ratios['debt-per-total-cash'] = self._ratios['total-debt-%s' % self.currency] / self.balancesheet['total-cash']
+       
+        if 'total-assets' in self.balancesheet:
+            self._ratios['debt-per-asset'] = self._ratios['total-debt-%s' % self.currency] / self.balancesheet['total-assets']
+        #if 'total-cash' in self.balancesheet:
+        #    self._ratios['debt-per-cash'] = self._ratios['total-debt-%s' % self.currency] / self.balancesheet['total-cash']
+        if 'gross-property-plant-and-equipment' in self.balancesheet:           
+            self._ratios['gross-property-plant-and-equipment'] = self.balancesheet['gross-property-plant-and-equipment']
+        if 'net-property-plant-and-equipment' in self.balancesheet:
+            self._ratios['net-property-plant-and-equipment'] = self.balancesheet['net-property-plant-and-equipment']
 
+    def add_margins_ratios(self):
+        if 'gross-margin' in self._ratios:
+            self._ratios['gross-margin-perc'] = self._ratios['gross-margin'].iloc[:, 0]
+        if 'operating-margin' in self._ratios:
+            self._ratios['operating-margin-perc'] = self._ratios['operating-margin'].iloc[:, 0]
+            self._ratios['operating-margin-val'] = self._ratios['operating-margin'].iloc[:, 1]
 
     def add_revenue_ps_growth(self):
         self._ratios['revenue-per-share-%s' % self.currency] = self._ratios['revenue-%s' % self.currency] / self._ratios['shares']
@@ -485,9 +543,15 @@ class Stock():
         return self._historic_prices
 
     def add_pe(self):
-        self.ratios['pe'] = self.ratios['earnings-per-share-%s' % self.currency]
-        for i in self.ratios['pe'].index:
-            self.ratios.loc[i,'pe'] = self.historic_prices.iloc[self.historic_prices.index.get_loc(i,method='nearest')]['Close'] / self.ratios.loc[i,'earnings-per-share-%s' % self.currency]
+        self._ratios['pe'] = self._ratios['earnings-per-share-%s' % self.currency]
+        for i in self._ratios['pe'].index:
+            try:
+                self._ratios.loc[i,'pe'] = self.historic_prices.iloc[self.historic_prices.index.get_loc(i,method='nearest')]['Close'] / self._ratios.loc[i,'earnings-per-share-%s' % self.currency]
+            except:
+               self._ratios.loc[i,'pe'] = float('nan')
+        self._ratios['min-pe'] = self._ratios["pe"].min()
+        self._ratios['max-pe'] = self._ratios["pe"].max()
+        self._ratios['0.75-perc-pe'] = self._ratios["pe"].quantile(q=0.75, interpolation='linear')
 
     def _download_morningstar_data(self, report_type):
         ''' download csv fundamentals data from morningstar '''
@@ -554,9 +618,9 @@ class Stock():
 
             return df
         except pd.errors.EmptyDataError:
-            self.error_log.append("No {} report found".format(report_type))
+            self.error_log.append("No {} report found".format('price'))
         except:
-            self.error_log.append("Unable to process report: {}".format(report_type))
+            self.error_log.append("Unable to process report: {}".format('price'))
         return pd.DataFrame()
 
     def _load_report_csv_to_df(self, report_type):
@@ -598,9 +662,46 @@ class Stock():
                     df[key[:-4]] = 1e6 * df[key]
                     df.drop(key, axis=1, inplace=True)
             df = df.apply(pd.to_numeric, errors='ignore')
+           # df = df.fillna(value=0)
             return df
         except pd.errors.EmptyDataError:
             self.error_log.append("No {} report found".format(report_type))
         except:
             self.error_log.append("Unable to process report: {}".format(report_type))
         return pd.DataFrame()
+    def load_report_csv_to_original_df(self, report_type):
+        ''' load company csv reports from morningstar (from web or cache)'''
+
+        if not self._csv_cache_valid(self.report_path(report_type), 86800):
+            self._download_morningstar_data(report_type)
+
+        try:
+            # determine how many rows to skip based on report type
+            skiprows = 1
+            if report_type == "ratios":
+                skiprows=2
+            
+            # read csv in pandas data frame
+            df = pd.read_csv(self.report_path(report_type),
+                        skiprows=skiprows,
+                        #index_col=0,
+                        #thousands=",",
+                        #skip_blank_lines=True,
+                        engine='python',
+                        converters=StringConverter())
+            # now index = parameters columns = dates
+            return df
+        except pd.errors.EmptyDataError:
+            self.error_log.append("No {} report found".format(report_type))
+        except:
+            self.error_log.append("Unable to process report: {}".format(report_type))
+        return pd.DataFrame()
+class StringConverter(dict):
+    def __contains__(self, item):
+        return True
+
+    def __getitem__(self, item):
+        return str
+
+    def get(self, default=None):
+        return str

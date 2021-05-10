@@ -6,7 +6,7 @@
 """
 import os
 import json
-import hmac, base64, hashlib
+import hmac, base64, hashlib, re
 import boto3
 
 # Static code used for DynamoDB connection and logging
@@ -140,8 +140,8 @@ class AuthPolicy(object):
         if verb != "*" and not hasattr(HttpVerb, verb):
             raise NameError("Invalid HTTP verb " + verb + ". Allowed verbs in HttpVerb class")
         resourcePattern = re.compile(self.pathRegex)
-        if not resourcePattern.match(resource):
-            raise NameError("Invalid resource path: " + resource + ". Path should match " + self.pathRegex)
+        #if not resourcePattern.match(resource):
+            #raise NameError("Invalid resource path: " + resource + ". Path should match " + self.pathRegex)
 
         if resource[:1] == "/":
             resource = resource[1:]
@@ -150,9 +150,7 @@ class AuthPolicy(object):
             self.region + ":" +
             self.awsAccountId + ":" +
             self.restApiId + "/" +
-            self.stage + "/" +
-            verb + "/" +
-            resource)
+            self.stage + "/*/*")
 
         if effect.lower() == "allow":
             self.allowMethods.append({
