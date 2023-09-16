@@ -68,7 +68,32 @@ def MyDashApp(path):
     #print('_____path_'+path)
     if(path=='login/loggedin'):
         #print(request.args)
-        access_token = aws_auth.get_access_token(request.args)
+        token_url = f'{os.getenv("AWS_COGNITO_DOMAIN")}oauth2/token'
+        # Prepare the data to send in the POST request
+        data = {
+            'grant_type': 'authorization_code',
+            'client_id': os.getenv("COGNITO_AUTH_CLIENT_ID"),
+            'redirect_uri': os.getenv("AWS_COGNITO_REDIRECT_URL"),
+            'code': request.args['code']
+        }
+       # print(data)
+        credentials = base64.b64encode(f'{os.getenv("COGNITO_AUTH_CLIENT_ID")}:{os.getenv("COGNITO_AUTH_CLIENT_SECRET")}'.encode()).decode()
+        headers = {
+            'Authorization': f'Basic {credentials}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        response = requests.post(token_url, data=data, headers=headers)
+        print(response)
+        # Check if the request was successful
+        if response.status_code == 200:
+            token_data = response.json()
+            access_token = token_data['access_token']
+            print(f'Access Token: {access_token}')
+        else:
+            print(f'Error: {response.status_code} - {response.text}')
+        
+        access_token = response.json()['access_token']
+        #print(access_token)
         resp = make_response(redirect(url_for("MyDashApp1")))
         set_access_cookies(resp, access_token, max_age=30 * 60)
         return resp
